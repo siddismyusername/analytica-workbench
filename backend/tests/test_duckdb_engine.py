@@ -58,7 +58,7 @@ def test_filter_value_is_parameterized() -> None:
     )
 
     assert malicious_value not in compiled.sql
-    assert malicious_value in compiled.parameters
+    assert compiled.parameters == ("/tmp/example.parquet", malicious_value)
 
 
 def test_pipeline_executes_against_parquet(tmp_path: Path) -> None:

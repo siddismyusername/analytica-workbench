@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from analytica_api.domain.datasets import DatasetSchema
 from analytica_api.execution.duckdb_engine import PipelineCompilationError, PipelineCompiler
@@ -10,9 +10,9 @@ router = APIRouter(prefix="/operations", tags=["operations"])
 
 
 class ValidatePipelineRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    schema: DatasetSchema
+    dataset_schema: DatasetSchema = Field(alias="schema")
     pipeline: PipelineSpec
 
 
@@ -29,7 +29,7 @@ async def list_operations() -> tuple[OperationDescriptor, ...]:
 @router.post("/validate", response_model=ValidatePipelineResponse)
 async def validate_pipeline(request: ValidatePipelineRequest) -> ValidatePipelineResponse:
     try:
-        active = PipelineCompiler(request.schema).validate(request.pipeline)
+        active = PipelineCompiler(request.dataset_schema).validate(request.pipeline)
     except PipelineCompilationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return ValidatePipelineResponse(valid=True, active_column_ids=active)

@@ -84,11 +84,12 @@ class PipelineCompiler:
             raise PipelineCompilationError("offset cannot be negative")
 
         active = list(self.validate(pipeline))
-        sql = "SELECT * FROM read_parquet(?)"
         parameters: list[Any] = [source.uri]
+        ctes = ["source_data AS (SELECT * FROM read_parquet(?))"]
+        current_relation = "source_data"
 
         for index, operation in enumerate(pipeline.operations, start=1):
-            alias = f"step_{index}"
+            step_name = f"step_{index}"
             if isinstance(operation, FilterOperation):
                 physical_name = self.columns[operation.column_id].physical_name
                 column_sql = quote_identifier(physical_name)
@@ -99,13 +100,13 @@ class PipelineCompiler:
                 else:
                     predicate = f"{column_sql} {self._FILTER_SQL[operation.operator]} ?"
                     parameters.append(operation.value)
-                sql = f"SELECT * FROM ({sql}) AS {alias} WHERE {predicate}"
+                step_sql = f"SELECT * FROM {current_relation} WHERE {predicate}"
             elif isinstance(operation, FillNullOperation):
                 physical_name = self.columns[operation.column_id].physical_name
                 column_sql = quote_identifier(physical_name)
-                sql = (
+                step_sql = (
                     f"SELECT * REPLACE (COALESCE({column_sql}, ?) AS {column_sql}) "
-                    f"FROM ({sql}) AS {alias}"
+                    f"FROM {current_relation}"
                 )
                 parameters.append(operation.value)
             elif isinstance(operation, DropColumnsOperation):
@@ -113,9 +114,14 @@ class PipelineCompiler:
                     quote_identifier(self.columns[column_id].physical_name)
                     for column_id in operation.column_ids
                 )
-                sql = f"SELECT * EXCLUDE ({excluded}) FROM ({sql}) AS {alias}"
+                step_sql = f"SELECT * EXCLUDE ({excluded}) FROM {current_relation}"
             elif isinstance(operation, DeduplicateOperation):
-                sql = f"SELECT DISTINCT * FROM ({sql}) AS {alias}"
+                step_sql = f"SELECT DISTINCT * FROM {current_relation}"
+            else:  # pragma: no cover - the discriminated union prevents this state.
+                raise PipelineCompilationError(f"unsupported operation: {operation.type}")
+
+            ctes.append(f"{step_name} AS ({step_sql})")
+            current_relation = step_name
 
         if selected_column_ids is not None:
             if not selected_column_ids:
@@ -124,15 +130,17 @@ class PipelineCompiler:
             for column_id in selected_column_ids:
                 physical_name = self._require_active(column_id, active)
                 selected_sql.append(quote_identifier(physical_name))
-            sql = f"SELECT {', '.join(selected_sql)} FROM ({sql}) AS selected_columns"
+            final_select = f"SELECT {', '.join(selected_sql)} FROM {current_relation}"
             active = list(selected_column_ids)
+        else:
+            final_select = f"SELECT * FROM {current_relation}"
 
         if limit is not None:
-            sql = f"SELECT * FROM ({sql}) AS bounded_result LIMIT ? OFFSET ?"
+            final_select += " LIMIT ? OFFSET ?"
             parameters.extend([limit, offset])
 
         return CompiledQuery(
-            sql=sql,
+            sql=f"WITH {', '.join(ctes)} {final_select}",
             parameters=tuple(parameters),
             active_column_ids=tuple(active),
         )
