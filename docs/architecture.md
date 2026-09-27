@@ -1,28 +1,29 @@
-# Application Architecture
+# Application architecture
 
-## Product model
+Analytica Workbench is organized as a polyglot monorepo.
 
-Analytica Workbench is a desktop-first professional analytics workspace organized around a reproducible project containing datasets, transformations, analyses, models, and results.
+## Frontend
 
-## Primary workspace
+`frontend/` contains the Next.js application. Its responsibility is the professional analytical workspace: import flows, dataset tables, profiling views, operation configuration, analysis results, model evaluation, and report composition.
 
-The UI architecture follows a stable three-region model:
+The visual architecture keeps high-density analytical content on solid surfaces while reserving translucent/glass materials for navigation and transient control chrome.
 
-1. **Navigation layer** — project-level destinations and workspace modes.
-2. **Content layer** — data grids, charts, statistical output, model evaluation, and reports. This remains predominantly solid and high-legibility.
-3. **Contextual layer** — inspectors, configuration, commands, and transient controls. Glass effects are reserved primarily for this UI layer rather than analytical content.
+## Backend
 
-## Product domains
+`backend/` contains a FastAPI application running on Vercel's Python runtime. It is the execution boundary for statistical operations, transformations, model training, evaluation, and dataset metadata.
 
-- `data`: import, profiling, schema, and dataset state
-- `prepare`: cleaning, transformation, reshaping, joins, and operation history
-- `explore`: descriptive statistics, distributions, relationships, and visualization
-- `analyze`: hypothesis tests, classical statistics, diagnostics, and effect estimates
-- `model`: supervised/unsupervised modeling, validation, metrics, and explainability
-- `results`: persistent outputs, comparison, reporting, and export
+The backend is stateless by design. Durable datasets, generated artifacts, job state, and analysis provenance must live outside the function filesystem.
 
-## Engineering direction
+## Execution classes
 
-The application uses the Next.js App Router and strict TypeScript. Feature code should be organized by domain rather than by generic component type as the product grows. Shared UI primitives belong under `src/components`; feature-specific state and UI should remain within the relevant feature domain.
+Operations should be classified before implementation:
 
-All analytical operations must eventually be represented as explicit, reproducible pipeline steps rather than destructive invisible mutations.
+1. **Interactive** — bounded work that reliably completes inside an HTTP function request.
+2. **Deferred** — expensive work submitted as a durable job and processed asynchronously.
+3. **External compute** — workloads whose memory, CPU, duration, or specialized runtime requirements exceed the Vercel Function envelope.
+
+This separation is intentional. The public API should use job/resource identifiers so a workload can move from interactive execution to a queue or external worker without changing the frontend's conceptual model.
+
+## Data movement
+
+Large dataset bytes should not transit through application functions. The browser uploads directly to private object storage, then the Python backend receives an authenticated object reference. Analysis outputs that exceed API response limits should likewise be written to object storage and returned by reference.

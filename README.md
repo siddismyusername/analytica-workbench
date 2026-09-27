@@ -1,44 +1,46 @@
 # Analytica Workbench
 
-A professional no-code/low-code data analysis workbench for preparation, exploration, statistical analysis, predictive modeling, evaluation, and reproducible reporting.
+Analytica Workbench is a professional no-code/low-code data-analysis workbench for data preparation, exploration, statistical inference, predictive modeling, evaluation, and reproducible reporting.
 
-## Foundation
+## Repository layout
 
-- Next.js App Router
-- React + strict TypeScript
-- ESLint with Next.js Core Web Vitals rules
-- Responsive, accessibility-aware application shell
-- System light/dark appearance and reduced-motion support
-- Liquid-glass-inspired navigation/control layer with solid analytical content surfaces
-- GitHub Actions verification on pushes and pull requests
+```text
+analytica-workbench/
+├── frontend/   # Next.js + React web application
+├── backend/    # FastAPI + Python analytics API
+├── docs/       # Product and architecture documentation
+└── .github/    # CI workflows
+```
+
+## Deployment model
+
+This repository is structured as a Vercel monorepo with two independently deployable projects:
+
+- `frontend/` — configure this directory as the Root Directory of the frontend Vercel project.
+- `backend/` — configure this directory as the Root Directory of the Python API Vercel project.
+
+The backend is intentionally stateless. User datasets should be uploaded directly from the browser to object storage rather than proxied through a Vercel Function. API requests should carry dataset references and operation parameters, not large file bodies.
+
+See [`docs/serverless-architecture.md`](docs/serverless-architecture.md) for the researched constraints and deployment rationale.
 
 ## Local development
 
-Requires Node.js 20.19 or newer.
+Frontend:
 
 ```bash
+cd frontend
 npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`.
-
-## Verification
+Backend:
 
 ```bash
-npm run verify
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-dev.txt
+uvicorn app:app --reload
 ```
 
-This runs linting, TypeScript validation, and a production build.
-
-## Product structure
-
-The product is organized around six major work modes:
-
-`Data → Prepare → Explore → Analyze → Model → Results`
-
-See [`docs/architecture.md`](docs/architecture.md) for the architectural baseline.
-
-## Status
-
-The repository currently contains the application foundation and initial workspace shell. Analytical engines, persistence, authentication, dataset execution, and production feature modules are intentionally not stubbed with fake behavior; they will be implemented against defined requirements.
+The backend exposes health and capability metadata under `/api/v1` and interactive OpenAPI documentation at `/docs`.

@@ -1,0 +1,9 @@
+fastapi==0.141.1
+numpy==2.5.3
+pandas==3.0.6
+scipy==1.18.1
+scikit-learn==1.9.1
+statsmodels==0.14.6
+pyarrow==25.0.1
+openpyxl>=3.1.5,<4.0
+vercel>=0.5.0,<1.0
