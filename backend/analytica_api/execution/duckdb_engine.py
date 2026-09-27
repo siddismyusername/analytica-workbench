@@ -56,9 +56,7 @@ class PipelineCompiler:
     def validate(self, pipeline: PipelineSpec) -> tuple[str, ...]:
         active = [column.column_id for column in self.schema.columns]
         for operation in pipeline.operations:
-            if isinstance(operation, FilterOperation):
-                self._require_active(operation.column_id, active)
-            elif isinstance(operation, FillNullOperation):
+            if isinstance(operation, (FilterOperation, FillNullOperation)):
                 self._require_active(operation.column_id, active)
             elif isinstance(operation, DropColumnsOperation):
                 for column_id in operation.column_ids:
