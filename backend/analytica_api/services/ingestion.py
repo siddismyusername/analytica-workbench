@@ -8,7 +8,7 @@ from analytica_api.domain.control_plane import JobRecord, JobStatus
 from analytica_api.ingestion.models import SourceFormat
 from analytica_api.queue.contracts import JobQueue
 from analytica_api.services.control_plane import ControlPlaneService
-from analytica_api.storage.contracts import ArtifactStore, StorageError
+from analytica_api.storage.contracts import ArtifactStore
 
 
 @dataclass(frozen=True)
@@ -51,16 +51,14 @@ class DatasetIngestionService:
         idempotency_key: str,
     ) -> IngestionSubmission:
         _validate_source_key(source_key, source_format)
-        try:
-            source_ref = await asyncio.to_thread(self.artifact_store.stat, source_key)
-        except StorageError:
-            raise
+        source_ref = await asyncio.to_thread(self.artifact_store.stat, source_key)
 
-        if self.settings.max_upload_bytes is not None:
-            if source_ref.byte_size > self.settings.max_upload_bytes:
-                raise ValueError(
-                    f"uploaded object exceeds configured limit of {self.settings.max_upload_bytes} bytes"
-                )
+        if (
+            self.settings.max_upload_bytes is not None
+            and source_ref.byte_size > self.settings.max_upload_bytes
+        ):
+            limit = self.settings.max_upload_bytes
+            raise ValueError(f"uploaded object exceeds configured limit of {limit} bytes")
 
         created = await asyncio.to_thread(
             self.control_plane.create_ingestion_job,
@@ -71,9 +69,7 @@ class DatasetIngestionService:
         )
 
         if created.job.status in {JobStatus.QUEUED, JobStatus.FAILED}:
-            dispatch_key = (
-                f"ingest:{created.job.id}:attempt:{created.job.attempt_count + 1}"
-            )
+            dispatch_key = f"ingest:{created.job.id}:attempt:{created.job.attempt_count + 1}"
             await self.job_queue.publish_ingestion(
                 created.job.id,
                 idempotency_key=dispatch_key,
