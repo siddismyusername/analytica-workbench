@@ -25,4 +25,4 @@ dependencies = [
 package = false
 
 [[tool.vercel.subscribers]]
-entrypoint = "analytica_api.queue.subscribers"
+entrypoint = "tasks"
