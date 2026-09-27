@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+pysqlite:///./analytica.db"
     artifact_store_backend: Literal["local", "vercel_blob"] = "local"
     local_artifact_root: str = ".analytica/artifacts"
+    queue_backend: Literal["inline", "vercel"] = "inline"
+    max_upload_bytes: int | None = Field(default=None, ge=1)
 
     @property
     def cors_origins(self) -> list[str]:
