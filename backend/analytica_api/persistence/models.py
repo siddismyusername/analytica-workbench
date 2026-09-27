@@ -151,5 +151,6 @@ class ArtifactModel(Base):
             "dataset_version_id IS NOT NULL OR job_id IS NOT NULL", name="artifact_has_owner"
         ),
         UniqueConstraint("dataset_version_id", "kind", name="dataset_version_artifact_kind"),
+        UniqueConstraint("job_id", "kind", name="job_artifact_kind"),
         Index("ix_artifacts_job_kind", "job_id", "kind"),
     )
