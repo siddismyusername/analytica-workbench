@@ -34,10 +34,14 @@ export async function POST(request: Request): Promise<Response> {
         if (!pathname.startsWith(SOURCE_PREFIX)) {
           throw new Error("Invalid dataset upload path.");
         }
-        const filename = pathname.slice(SOURCE_PREFIX.length);
+        const relative = pathname.slice(SOURCE_PREFIX.length);
+        const segments = relative.split("/");
+        if (segments.length !== 2) {
+          throw new Error("Invalid dataset upload path.");
+        }
+        const [format, filename] = segments;
         if (
           !filename ||
-          filename.includes("/") ||
           filename.includes("\\") ||
           filename.includes("..")
         ) {
@@ -45,7 +49,10 @@ export async function POST(request: Request): Promise<Response> {
         }
 
         const lower = filename.toLowerCase();
-        if (!lower.endsWith(".csv") && !lower.endsWith(".parquet")) {
+        const formatMatches =
+          (format === "csv" && lower.endsWith(".csv")) ||
+          (format === "parquet" && lower.endsWith(".parquet"));
+        if (!formatMatches) {
           throw new Error("Only CSV and Parquet datasets are supported.");
         }
 
