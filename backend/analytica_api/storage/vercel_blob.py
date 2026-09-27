@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from vercel import blob
+from vercel.blob import delete, download_file, head, upload_file
 
 from analytica_api.storage.contracts import StorageError, StorageObjectRef
 
@@ -19,7 +19,7 @@ class VercelBlobArtifactStore:
         if not source.is_file():
             raise StorageError(f"source artifact does not exist: {source}")
         try:
-            result = blob.upload_file(
+            result = upload_file(
                 source,
                 key,
                 access="private",
@@ -34,7 +34,7 @@ class VercelBlobArtifactStore:
 
     def stat(self, key: str) -> StorageObjectRef:
         try:
-            result = blob.head(key)
+            result = head(key)
             return StorageObjectRef(
                 key=result.pathname,
                 byte_size=result.size,
@@ -49,7 +49,7 @@ class VercelBlobArtifactStore:
             raise StorageError(f"materialization target already exists: {target}")
         target.parent.mkdir(parents=True, exist_ok=True)
         try:
-            blob.download_file(
+            download_file(
                 object_ref.key,
                 target,
                 access="private",
@@ -64,7 +64,7 @@ class VercelBlobArtifactStore:
 
     def delete(self, object_ref: StorageObjectRef) -> None:
         try:
-            blob.delete(object_ref.key)
+            delete(object_ref.key)
         except Exception as exc:
             raise StorageError(
                 f"Vercel Blob delete failed for {object_ref.key}: {exc}"
