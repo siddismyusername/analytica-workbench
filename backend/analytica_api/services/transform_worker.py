@@ -3,26 +3,28 @@ from tempfile import TemporaryDirectory
 from uuid import UUID
 
 import duckdb
+from pydantic import TypeAdapter
 
-from analytica_api.domain.control_plane import JobStatus
+from analytica_api.domain.control_plane import ArtifactRecord, JobStatus
 from analytica_api.domain.datasets import DatasetSchema, DatasetSource
 from analytica_api.execution.duckdb_engine import PipelineCompiler
-from analytica_api.operations.models import PipelineSpec
+from analytica_api.operations.models import Operation, PipelineSpec
 from analytica_api.services.control_plane import ControlPlaneError, ControlPlaneService
-from analytica_api.services.transform import DatasetTransformService
 from analytica_api.storage.contracts import ArtifactStore, StorageError, StorageObjectRef
+
+_OPERATION_ADAPTER = TypeAdapter(Operation)
 
 
 class TransformWorkerError(RuntimeError):
     pass
 
 
-def _artifact_ref(artifact: object) -> StorageObjectRef:
+def _artifact_ref(artifact: ArtifactRecord) -> StorageObjectRef:
     return StorageObjectRef(
-        key=artifact.storage_key,  # type: ignore[attr-defined]
-        byte_size=artifact.byte_size,  # type: ignore[attr-defined]
-        content_type=artifact.content_type,  # type: ignore[attr-defined]
-        checksum_sha256=artifact.checksum_sha256,  # type: ignore[attr-defined]
+        key=artifact.storage_key,
+        byte_size=artifact.byte_size,
+        content_type=artifact.content_type,
+        checksum_sha256=artifact.checksum_sha256,
     )
 
 
@@ -36,11 +38,9 @@ class TransformWorker:
         *,
         control_plane: ControlPlaneService,
         store: ArtifactStore,
-        transform_service: DatasetTransformService,
     ):
         self.control_plane = control_plane
         self.store = store
-        self.transform_service = transform_service
 
     def _mark_failed(self, job_id: UUID, exc: Exception) -> None:
         try:
@@ -78,7 +78,7 @@ class TransformWorker:
             operation_payload = job.operation_payload.get("operation")
             if not isinstance(operation_payload, dict):
                 raise TransformWorkerError("transform job has no operation payload")
-            operation = self.transform_service.parse_operation(operation_payload)
+            operation = _OPERATION_ADAPTER.validate_python(operation_payload)
             input_version = self.control_plane.get_version(job.input_version_id)
             if input_version.dataset_id != job.dataset_id:
                 raise TransformWorkerError("input version belongs to another dataset")
