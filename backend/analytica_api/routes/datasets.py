@@ -1,4 +1,3 @@
-from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -15,9 +14,7 @@ class UploadedDatasetRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1, max_length=255)
-    source_key: str = Field(min_length=1)
-    source_format: Literal["csv", "parquet"]
-    idempotency_key: str = Field(min_length=1, max_length=255)
+    source_key: str = Field(min_length=1, max_length=1024)
 
 
 class IngestionResponse(BaseModel):
@@ -57,8 +54,6 @@ async def ingest_uploaded_dataset(payload: UploadedDatasetRequest) -> IngestionR
         submission = await get_ingestion_service().submit_uploaded_dataset(
             name=payload.name,
             source_key=payload.source_key,
-            source_format=payload.source_format,
-            idempotency_key=payload.idempotency_key,
         )
         return _ingestion_response(submission.job.id)
     except (ControlPlaneError, StorageError, ValueError) as exc:
