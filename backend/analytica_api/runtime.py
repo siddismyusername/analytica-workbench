@@ -10,6 +10,7 @@ from analytica_api.services.control_plane import ControlPlaneService
 from analytica_api.services.ingestion import DatasetIngestionService
 from analytica_api.services.ingestion_worker import IngestionWorker
 from analytica_api.services.preview import DatasetPreviewService
+from analytica_api.services.profile import DatasetProfileService
 from analytica_api.storage.contracts import ArtifactStore
 from analytica_api.storage.local import LocalArtifactStore
 from analytica_api.storage.vercel_blob import VercelBlobArtifactStore
@@ -64,6 +65,14 @@ def get_ingestion_service() -> DatasetIngestionService:
 @lru_cache(maxsize=1)
 def get_preview_service() -> DatasetPreviewService:
     return DatasetPreviewService(
+        control_plane=get_control_plane(),
+        artifact_store=get_artifact_store(),
+    )
+
+
+@lru_cache(maxsize=1)
+def get_profile_service() -> DatasetProfileService:
+    return DatasetProfileService(
         control_plane=get_control_plane(),
         artifact_store=get_artifact_store(),
     )
