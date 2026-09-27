@@ -174,7 +174,9 @@ class ControlPlaneService:
                 if existing_artifact is not None:
                     if existing_artifact.dataset_version_id is None:
                         raise ControlPlaneError("canonical artifact is missing its dataset version")
-                    existing_version = unit_of_work.versions.get(existing_artifact.dataset_version_id)
+                    existing_version = unit_of_work.versions.get(
+                        existing_artifact.dataset_version_id
+                    )
                     if existing_version is None:
                         raise ControlPlaneError("canonical artifact references a missing version")
                     return RegisteredDatasetVersion(
