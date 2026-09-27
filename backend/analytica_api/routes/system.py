@@ -15,14 +15,17 @@ async def capabilities() -> dict[str, object]:
             "interactive": True,
             "deferred_jobs": "planned",
             "large_uploads": "direct-to-object-storage",
+            "canonical_dataset_format": "parquet",
         },
         "analytics_stack": [
+            "duckdb",
+            "pyarrow",
             "numpy",
             "pandas",
             "scipy",
             "statsmodels",
             "scikit-learn",
-            "pyarrow",
         ],
+        "pipeline_schema_version": 1,
         "formats": ["csv", "xlsx", "parquet"],
     }

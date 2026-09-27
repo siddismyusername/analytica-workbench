@@ -1,4 +1,7 @@
 fastapi==0.141.1
+pydantic==2.13.5
+pydantic-settings==2.15.0
+duckdb==1.5.5
 numpy==2.5.3
 pandas==3.0.6
 scipy==1.18.1

@@ -42,4 +42,4 @@ jobs:
       - run: python -m pip install -r requirements-dev.txt
       - run: ruff check app.py analytica_api tests
       - run: python -m compileall -q app.py analytica_api
-      - run: pytest -q
+      - run: python -m pytest -q
