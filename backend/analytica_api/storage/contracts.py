@@ -4,6 +4,10 @@ from typing import Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class StorageError(RuntimeError):
+    pass
+
+
 class StorageObjectRef(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -21,6 +25,8 @@ class ArtifactStore(Protocol):
         key: str,
         content_type: str,
     ) -> StorageObjectRef: ...
+
+    def stat(self, key: str) -> StorageObjectRef: ...
 
     def materialize(self, object_ref: StorageObjectRef, target_path: Path) -> Path: ...
 
