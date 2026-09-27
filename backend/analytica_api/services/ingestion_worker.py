@@ -111,8 +111,8 @@ class IngestionWorker:
                 except StorageError as upload_error:
                     try:
                         canonical_ref = self.store.stat(canonical_key)
-                    except StorageError:
-                        raise upload_error
+                    except StorageError as stat_error:
+                        raise upload_error from stat_error
 
                 try:
                     registered = self.control_plane.register_ingested_version(
@@ -122,14 +122,14 @@ class IngestionWorker:
                         job_id=job.id,
                     )
                     output_version_id = registered.version.id
-                except IntegrityError:
+                except IntegrityError as integrity_error:
                     canonical_artifact = self.control_plane.get_artifact_for_job_kind(
                         job.id, "canonical_dataset"
                     )
                     if canonical_artifact.dataset_version_id is None:
                         raise IngestionWorkerError(
                             "canonical artifact is missing its dataset version"
-                        )
+                        ) from integrity_error
                     output_version_id = canonical_artifact.dataset_version_id
 
             latest = self.control_plane.get_job(job.id)
