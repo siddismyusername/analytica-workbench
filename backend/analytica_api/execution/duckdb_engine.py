@@ -198,9 +198,9 @@ class PipelineCompiler:
                 for column_id in active:
                     source_name = names[column_id]
                     if column_id == operation.column_id:
-                        projection.append(
-                            f"{quote_identifier(source_name)} AS {quote_identifier(operation.new_name)}"
-                        )
+                        source_sql = quote_identifier(source_name)
+                        target_sql = quote_identifier(operation.new_name)
+                        projection.append(f"{source_sql} AS {target_sql}")
                     else:
                         projection.append(quote_identifier(source_name))
                 step_sql = f"SELECT {', '.join(projection)} FROM {current_relation}"
