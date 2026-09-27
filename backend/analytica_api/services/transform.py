@@ -16,7 +16,7 @@ from analytica_api.domain.datasets import DatasetSchema, DatasetSource
 from analytica_api.execution.duckdb_engine import PipelineCompiler
 from analytica_api.operations.models import Operation, PipelineSpec
 from analytica_api.queue.contracts import JobQueue
-from analytica_api.services.control_plane import ControlPlaneError, ControlPlaneService
+from analytica_api.services.control_plane import ControlPlaneService
 from analytica_api.storage.contracts import ArtifactStore, StorageObjectRef
 
 _OPERATION_ADAPTER = TypeAdapter(Operation)
@@ -58,7 +58,11 @@ def _object_ref_from_artifact(artifact: Any) -> StorageObjectRef:
 
 
 def _idempotency_key(version_id: UUID, operation: Operation) -> str:
-    payload = json.dumps(operation.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+    payload = json.dumps(
+        operation.model_dump(mode="json"),
+        sort_keys=True,
+        separators=(",", ":"),
+    )
     digest = hashlib.sha256(f"{version_id}:{payload}".encode()).hexdigest()
     return f"transform:{digest}"
 
@@ -78,10 +82,19 @@ class DatasetTransformService:
     def _version_context(self, version_id: UUID) -> tuple[Any, DatasetSchema, Any]:
         version = self.control_plane.get_version(version_id)
         schema = DatasetSchema.model_validate(version.schema_snapshot)
-        artifact = self.control_plane.get_artifact_for_version_kind(version_id, "canonical_dataset")
+        artifact = self.control_plane.get_artifact_for_version_kind(
+            version_id,
+            "canonical_dataset",
+        )
         return version, schema, artifact
 
-    def preview(self, version_id: UUID, operation: Operation, *, limit: int = 50) -> TransformPreview:
+    def preview(
+        self,
+        version_id: UUID,
+        operation: Operation,
+        *,
+        limit: int = 50,
+    ) -> TransformPreview:
         if not 1 <= limit <= 200:
             raise ValueError("limit must be between 1 and 200")
         version, schema, artifact = self._version_context(version_id)
@@ -91,7 +104,8 @@ class DatasetTransformService:
 
         with TemporaryDirectory(prefix="analytica-transform-preview-") as directory:
             path = self.artifact_store.materialize(
-                _object_ref_from_artifact(artifact), Path(directory) / "input.parquet"
+                _object_ref_from_artifact(artifact),
+                Path(directory) / "input.parquet",
             )
             source = DatasetSource(uri=str(path))
             compiled = compiler.compile(source, pipeline, limit=limit)
@@ -129,7 +143,10 @@ class DatasetTransformService:
             operation_payload={"operation": operation.model_dump(mode="json")},
         )
         if job.status in {JobStatus.QUEUED, JobStatus.FAILED}:
-            await self.job_queue.publish_transform(job.id, idempotency_key=job.idempotency_key)
+            await self.job_queue.publish_transform(
+                job.id,
+                idempotency_key=job.idempotency_key,
+            )
             job = self.control_plane.get_job(job.id)
         return TransformSubmission(job=job, input_version_id=version.id)
 
