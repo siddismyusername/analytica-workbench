@@ -51,7 +51,7 @@ def test_api_verifies_storage_enqueues_and_previews(tmp_path: Path) -> None:
     source.write_text("name,age\nAda,36\nGrace,40\n", encoding="utf-8")
     uploaded = store.put_file(
         source,
-        key="datasets/source/customers.csv",
+        key="datasets/source/csv/customers.csv",
         content_type="text/csv",
     )
 
@@ -98,7 +98,7 @@ def test_api_verifies_storage_enqueues_and_previews(tmp_path: Path) -> None:
                 "/api/v1/datasets/ingestions",
                 json={
                     "name": "Missing",
-                    "source_key": "datasets/source/missing.csv",
+                    "source_key": "datasets/source/csv/missing.csv",
                 },
             )
             assert missing.status_code == 400
