@@ -8,11 +8,13 @@ from pydantic import (
     StrictFloat,
     StrictInt,
     StrictStr,
+    field_validator,
     model_validator,
 )
 
 JsonScalar = StrictBool | StrictInt | StrictFloat | StrictStr
 FilterOperator = Literal["eq", "neq", "gt", "gte", "lt", "lte", "is_null", "not_null"]
+CastDataType = Literal["boolean", "integer", "float", "string", "date", "datetime"]
 
 
 class OperationBase(BaseModel):
@@ -60,8 +62,33 @@ class DeduplicateOperation(OperationBase):
     type: Literal["deduplicate"] = "deduplicate"
 
 
+class RenameColumnOperation(OperationBase):
+    type: Literal["rename_column"] = "rename_column"
+    column_id: str = Field(min_length=1)
+    new_name: str = Field(min_length=1, max_length=255)
+
+    @field_validator("new_name")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("new_name cannot be blank")
+        return normalized
+
+
+class CastColumnOperation(OperationBase):
+    type: Literal["cast_column"] = "cast_column"
+    column_id: str = Field(min_length=1)
+    target_type: CastDataType
+
+
 Operation = Annotated[
-    FilterOperation | DropColumnsOperation | FillNullOperation | DeduplicateOperation,
+    FilterOperation
+    | DropColumnsOperation
+    | FillNullOperation
+    | DeduplicateOperation
+    | RenameColumnOperation
+    | CastColumnOperation,
     Field(discriminator="type"),
 ]
 
