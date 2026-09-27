@@ -58,9 +58,9 @@ class ArtifactRepository(Protocol):
         object_ref: StorageObjectRef,
     ) -> ArtifactRecord: ...
 
-    def get_for_version_kind(
-        self, dataset_version_id: UUID, kind: str
-    ) -> ArtifactRecord | None: ...
+    def get_for_version_kind(self, version_id: UUID, kind: str) -> ArtifactRecord | None: ...
+
+    def get_for_job_kind(self, job_id: UUID, kind: str) -> ArtifactRecord | None: ...
 
 
 class JobRepository(Protocol):
@@ -230,11 +230,17 @@ class SqlAlchemyArtifactRepository:
         self.session.flush()
         return _artifact_record(model)
 
-    def get_for_version_kind(
-        self, dataset_version_id: UUID, kind: str
-    ) -> ArtifactRecord | None:
+    def get_for_version_kind(self, version_id: UUID, kind: str) -> ArtifactRecord | None:
         statement = select(ArtifactModel).where(
-            ArtifactModel.dataset_version_id == dataset_version_id,
+            ArtifactModel.dataset_version_id == version_id,
+            ArtifactModel.kind == kind,
+        )
+        model = self.session.execute(statement).scalar_one_or_none()
+        return _artifact_record(model) if model else None
+
+    def get_for_job_kind(self, job_id: UUID, kind: str) -> ArtifactRecord | None:
+        statement = select(ArtifactModel).where(
+            ArtifactModel.job_id == job_id,
             ArtifactModel.kind == kind,
         )
         model = self.session.execute(statement).scalar_one_or_none()
@@ -295,6 +301,7 @@ class SqlAlchemyJobRepository:
             model.output_version_id = output_version_id
         if status == JobStatus.RUNNING:
             model.started_at = model.started_at or now
+            model.completed_at = None
             model.attempt_count += 1
         if status in {JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.CANCELLED}:
             model.completed_at = now
