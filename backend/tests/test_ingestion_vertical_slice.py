@@ -12,7 +12,7 @@ from analytica_api.services.preview import DatasetPreviewService
 from analytica_api.storage.local import LocalArtifactStore
 
 
-def test_uploaded_csv_becomes_registered_parquet_and_preview(tmp_path: Path) -> None:
+def test_queued_csv_becomes_registered_parquet_and_preview(tmp_path: Path) -> None:
     database = Database(f"sqlite+pysqlite:///{tmp_path / 'vertical.db'}")
     Base.metadata.create_all(database.engine)
     store = LocalArtifactStore(tmp_path / "artifacts")
@@ -32,31 +32,39 @@ def test_uploaded_csv_becomes_registered_parquet_and_preview(tmp_path: Path) -> 
 
     upload = tmp_path / "customers.csv"
     upload.write_text("name,age\nAda,36\nGrace,40\n", encoding="utf-8")
-    source_ref = store.put_file(
+    uploaded_ref = store.put_file(
         upload,
-        key="uploads/customers.csv",
+        key="datasets/source/customers.csv",
         content_type="text/csv",
     )
+    verified_ref = store.stat(uploaded_ref.key)
 
     try:
-        result = ingestion.ingest_uploaded_dataset(
-            name="Customers",
-            source_ref=source_ref,
+        created = control_plane.create_ingestion_job(
+            dataset_name="Customers",
+            source_ref=verified_ref,
             source_format="csv",
-            idempotency_key="upload:customers:1",
+            idempotency_key="ingest:customers",
         )
-        repeated = ingestion.ingest_uploaded_dataset(
-            name="Customers",
-            source_ref=source_ref,
+        repeated = control_plane.create_ingestion_job(
+            dataset_name="Ignored on retry",
+            source_ref=verified_ref,
             source_format="csv",
-            idempotency_key="upload:customers:1",
+            idempotency_key="ingest:customers",
         )
-        dataset_preview = preview.preview(result.version_id, limit=10)
+        assert repeated.dataset.id == created.dataset.id
+        assert repeated.job.id == created.job.id
+        assert created.job.status == JobStatus.QUEUED
 
-        assert result.job.status == JobStatus.SUCCEEDED
-        assert repeated.job.id == result.job.id
-        assert repeated.dataset_id == result.dataset_id
-        assert repeated.version_id == result.version_id
+        version_id = ingestion.run_job(created.job.id)
+        replay_version_id = ingestion.run_job(created.job.id)
+        completed = control_plane.get_job(created.job.id)
+        dataset_preview = preview.preview(version_id, limit=10)
+
+        assert completed.status == JobStatus.SUCCEEDED
+        assert completed.attempt_count == 1
+        assert completed.output_version_id == version_id
+        assert replay_version_id == version_id
         assert dataset_preview.columns == ("name", "age")
         assert dataset_preview.rows == (("Ada", 36), ("Grace", 40))
     finally:
