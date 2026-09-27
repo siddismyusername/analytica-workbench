@@ -34,7 +34,7 @@ def test_queued_csv_becomes_registered_parquet_and_preview(tmp_path: Path) -> No
     upload.write_text("name,age\nAda,36\nGrace,40\n", encoding="utf-8")
     uploaded_ref = store.put_file(
         upload,
-        key="datasets/source/customers.csv",
+        key="datasets/source/csv/customers.csv",
         content_type="text/csv",
     )
     verified_ref = store.stat(uploaded_ref.key)
