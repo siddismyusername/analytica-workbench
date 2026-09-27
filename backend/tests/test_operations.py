@@ -36,6 +36,8 @@ def test_operation_catalog_is_exposed() -> None:
         "drop_columns",
         "fill_null",
         "deduplicate",
+        "rename_column",
+        "cast_column",
     }
 
 
