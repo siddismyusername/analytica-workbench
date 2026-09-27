@@ -50,17 +50,17 @@ def _source_format(source_key: str) -> SourceFormat:
     if (
         path.is_absolute()
         or ".." in path.parts
-        or len(path.parts) < 3
+        or len(path.parts) != 4
         or path.parts[:2] != ("datasets", "source")
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="source_key must reference an uploaded dataset source",
         )
-    suffix = path.suffix.lower()
-    if suffix == ".csv":
+    format_name = path.parts[2]
+    if format_name == "csv":
         return "csv"
-    if suffix == ".parquet":
+    if format_name == "parquet":
         return "parquet"
     raise HTTPException(
         status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
