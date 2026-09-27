@@ -3,7 +3,12 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 
-from analytica_api.runtime import get_control_plane, get_ingestion_service, get_preview_service
+from analytica_api.runtime import (
+    get_control_plane,
+    get_ingestion_service,
+    get_preview_service,
+    get_profile_service,
+)
 from analytica_api.services.control_plane import ControlPlaneError
 from analytica_api.storage.contracts import StorageError
 
@@ -30,6 +35,39 @@ class PreviewResponse(BaseModel):
     rows: list[list[object]]
     offset: int
     limit: int
+
+
+class ColumnProfileResponse(BaseModel):
+    name: str
+    display_name: str
+    data_type: str
+    storage_type: str | None
+    nullable: bool
+    null_count: int
+    null_percentage: float
+    distinct_count: int
+
+
+class ProfileWarningResponse(BaseModel):
+    code: str
+    severity: str
+    message: str
+
+
+class ProfileResponse(BaseModel):
+    version_id: UUID
+    dataset_id: UUID
+    dataset_name: str
+    version_number: int
+    row_count: int
+    column_count: int
+    byte_size: int
+    missing_cells: int
+    missing_percentage: float
+    duplicate_rows: int
+    duplicate_percentage: float
+    columns: list[ColumnProfileResponse]
+    warnings: list[ProfileWarningResponse]
 
 
 def _ingestion_response(job_id: UUID) -> IngestionResponse:
@@ -85,4 +123,47 @@ def preview_dataset(
         rows=[list(row) for row in result.rows],
         offset=result.offset,
         limit=result.limit,
+    )
+
+
+@router.get("/datasets/versions/{version_id}/profile", response_model=ProfileResponse)
+def profile_dataset(version_id: UUID) -> ProfileResponse:
+    try:
+        result = get_profile_service().profile(version_id)
+    except (LookupError, ControlPlaneError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    return ProfileResponse(
+        version_id=result.version_id,
+        dataset_id=result.dataset_id,
+        dataset_name=result.dataset_name,
+        version_number=result.version_number,
+        row_count=result.row_count,
+        column_count=result.column_count,
+        byte_size=result.byte_size,
+        missing_cells=result.missing_cells,
+        missing_percentage=result.missing_percentage,
+        duplicate_rows=result.duplicate_rows,
+        duplicate_percentage=result.duplicate_percentage,
+        columns=[
+            ColumnProfileResponse(
+                name=column.name,
+                display_name=column.display_name,
+                data_type=column.data_type,
+                storage_type=column.storage_type,
+                nullable=column.nullable,
+                null_count=column.null_count,
+                null_percentage=column.null_percentage,
+                distinct_count=column.distinct_count,
+            )
+            for column in result.columns
+        ],
+        warnings=[
+            ProfileWarningResponse(
+                code=warning.code,
+                severity=warning.severity,
+                message=warning.message,
+            )
+            for warning in result.warnings
+        ],
     )
