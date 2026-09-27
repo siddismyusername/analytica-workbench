@@ -12,6 +12,7 @@ from analytica_api.storage.contracts import ArtifactStore, StorageObjectRef
 
 @dataclass(frozen=True)
 class ColumnProfile:
+    column_id: str
     name: str
     display_name: str
     data_type: str
@@ -145,6 +146,7 @@ class DatasetProfileService:
             distinct_count = int(values[2 + index * 2])
             profiles.append(
                 ColumnProfile(
+                    column_id=column.column_id,
                     name=column.physical_name,
                     display_name=column.display_name,
                     data_type=column.data_type,
@@ -188,9 +190,7 @@ class DatasetProfileService:
                 ProfileWarning(
                     code="missing_values",
                     severity="warning",
-                    message=(
-                        f"{len(columns_with_missing)} column(s) contain missing values."
-                    ),
+                    message=f"{len(columns_with_missing)} column(s) contain missing values.",
                 )
             )
         if duplicate_rows > 0:

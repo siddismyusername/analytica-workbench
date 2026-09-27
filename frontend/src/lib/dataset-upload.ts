@@ -6,6 +6,7 @@ export type DatasetIngestion = {
 };
 
 export type DatasetColumnProfile = {
+  column_id: string;
   name: string;
   display_name: string;
   data_type: string;
@@ -51,7 +52,7 @@ type PresignedUpload = {
   contentType: string;
 };
 
-function backendBaseUrl(): string {
+export function backendBaseUrl(): string {
   const value = process.env.NEXT_PUBLIC_ANALYTICA_API_URL?.trim();
   if (!value) {
     throw new Error("NEXT_PUBLIC_ANALYTICA_API_URL is not configured");
@@ -59,7 +60,7 @@ function backendBaseUrl(): string {
   return value.replace(/\/$/, "");
 }
 
-async function errorText(response: Response): Promise<string> {
+export async function errorText(response: Response): Promise<string> {
   try {
     const payload = (await response.json()) as { error?: string; detail?: string };
     return payload.error ?? payload.detail ?? `HTTP ${response.status}`;
@@ -79,9 +80,7 @@ function putFileWithProgress(
     request.open("PUT", url);
     request.setRequestHeader("Content-Type", contentType);
     request.upload.onprogress = (event) => {
-      if (!event.lengthComputable || !onProgress) {
-        return;
-      }
+      if (!event.lengthComputable || !onProgress) return;
       onProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
     };
     request.onerror = () => reject(new Error("Object upload failed due to a network error"));
@@ -105,30 +104,18 @@ export async function uploadDataset(
   const presignResponse = await fetch("/api/uploads/presign", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      filename: file.name,
-      size: file.size,
-    }),
+    body: JSON.stringify({ filename: file.name, size: file.size }),
   });
   if (!presignResponse.ok) {
     throw new Error(`Could not authorize upload: ${await errorText(presignResponse)}`);
   }
   const presigned = (await presignResponse.json()) as PresignedUpload;
-
-  await putFileWithProgress(
-    presigned.presignedUrl,
-    presigned.contentType,
-    file,
-    onProgress,
-  );
+  await putFileWithProgress(presigned.presignedUrl, presigned.contentType, file, onProgress);
 
   const ingestionResponse = await fetch(`${backendBaseUrl()}/api/v1/datasets/ingestions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: datasetName,
-      source_key: presigned.pathname,
-    }),
+    body: JSON.stringify({ name: datasetName, source_key: presigned.pathname }),
   });
   if (!ingestionResponse.ok) {
     throw new Error(`Could not start ingestion: ${await errorText(ingestionResponse)}`);
@@ -163,10 +150,7 @@ export async function getDatasetPreview(
   offset = 0,
   limit = 200,
 ): Promise<DatasetPreview> {
-  const query = new URLSearchParams({
-    offset: String(offset),
-    limit: String(limit),
-  });
+  const query = new URLSearchParams({ offset: String(offset), limit: String(limit) });
   const response = await fetch(
     `${backendBaseUrl()}/api/v1/datasets/versions/${encodeURIComponent(versionId)}/preview?${query}`,
     { cache: "no-store" },

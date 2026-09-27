@@ -11,6 +11,8 @@ from analytica_api.services.ingestion import DatasetIngestionService
 from analytica_api.services.ingestion_worker import IngestionWorker
 from analytica_api.services.preview import DatasetPreviewService
 from analytica_api.services.profile import DatasetProfileService
+from analytica_api.services.transform import DatasetTransformService
+from analytica_api.services.transform_worker import TransformWorker
 from analytica_api.storage.contracts import ArtifactStore
 from analytica_api.storage.local import LocalArtifactStore
 from analytica_api.storage.vercel_blob import VercelBlobArtifactStore
@@ -45,17 +47,37 @@ def get_ingestion_worker() -> IngestionWorker:
 
 
 @lru_cache(maxsize=1)
+def get_transform_worker() -> TransformWorker:
+    return TransformWorker(
+        control_plane=get_control_plane(),
+        store=get_artifact_store(),
+    )
+
+
+@lru_cache(maxsize=1)
 def get_job_queue() -> JobQueue:
     settings: Settings = get_settings()
     if settings.queue_provider == "vercel":
         return VercelJobQueue()
-    return InlineJobQueue(get_ingestion_worker().run)
+    return InlineJobQueue(
+        get_ingestion_worker().run,
+        get_transform_worker().run,
+    )
 
 
 @lru_cache(maxsize=1)
 def get_ingestion_service() -> DatasetIngestionService:
     return DatasetIngestionService(
         settings=get_settings(),
+        control_plane=get_control_plane(),
+        artifact_store=get_artifact_store(),
+        job_queue=get_job_queue(),
+    )
+
+
+@lru_cache(maxsize=1)
+def get_transform_service() -> DatasetTransformService:
+    return DatasetTransformService(
         control_plane=get_control_plane(),
         artifact_store=get_artifact_store(),
         job_queue=get_job_queue(),

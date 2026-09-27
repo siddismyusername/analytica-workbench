@@ -11,6 +11,7 @@ from analytica_api.domain.control_plane import (
     JobRecord,
     JobStatus,
 )
+from analytica_api.domain.datasets import DatasetSchema
 from analytica_api.ingestion.models import IngestionManifest, SourceFormat
 from analytica_api.persistence.unit_of_work import UnitOfWork
 from analytica_api.storage.contracts import StorageObjectRef
@@ -79,6 +80,10 @@ class ControlPlaneService:
     def get_job_by_idempotency_key(self, idempotency_key: str) -> JobRecord | None:
         with self.unit_of_work_factory() as unit_of_work:
             return unit_of_work.jobs.get_by_idempotency_key(idempotency_key.strip())
+
+    def get_job_by_output_version_id(self, version_id: UUID) -> JobRecord | None:
+        with self.unit_of_work_factory() as unit_of_work:
+            return unit_of_work.jobs.get_by_output_version_id(version_id)
 
     def get_artifact_for_version_kind(self, version_id: UUID, kind: str) -> ArtifactRecord:
         with self.unit_of_work_factory() as unit_of_work:
@@ -159,7 +164,47 @@ class ControlPlaneService:
     ) -> RegisteredDatasetVersion:
         if manifest.byte_size != object_ref.byte_size:
             raise ControlPlaneError("artifact size does not match the ingestion manifest")
+        return self._register_version(
+            dataset_id=dataset_id,
+            parent_version_id=parent_version_id,
+            schema=manifest.schema,
+            row_count=manifest.row_count,
+            object_ref=object_ref,
+            job_id=job_id,
+            source_format=manifest.source_format,
+        )
 
+    def register_derived_version(
+        self,
+        *,
+        dataset_id: UUID,
+        parent_version_id: UUID,
+        schema: DatasetSchema,
+        row_count: int,
+        object_ref: StorageObjectRef,
+        job_id: UUID,
+    ) -> RegisteredDatasetVersion:
+        return self._register_version(
+            dataset_id=dataset_id,
+            parent_version_id=parent_version_id,
+            schema=schema,
+            row_count=row_count,
+            object_ref=object_ref,
+            job_id=job_id,
+            source_format="parquet",
+        )
+
+    def _register_version(
+        self,
+        *,
+        dataset_id: UUID,
+        parent_version_id: UUID | None,
+        schema: DatasetSchema,
+        row_count: int,
+        object_ref: StorageObjectRef,
+        job_id: UUID | None,
+        source_format: str,
+    ) -> RegisteredDatasetVersion:
         with self.unit_of_work_factory() as unit_of_work:
             if unit_of_work.datasets.get(dataset_id) is None:
                 raise ControlPlaneError(f"dataset does not exist: {dataset_id}")
@@ -167,7 +212,7 @@ class ControlPlaneService:
             if job_id is not None:
                 job = unit_of_work.jobs.get(job_id)
                 if job is None or job.dataset_id != dataset_id:
-                    raise ControlPlaneError("ingestion job must belong to the same dataset")
+                    raise ControlPlaneError("job must belong to the same dataset")
                 existing_artifact = unit_of_work.artifacts.get_for_job_kind(
                     job_id, "canonical_dataset"
                 )
@@ -195,10 +240,10 @@ class ControlPlaneService:
                 version_number=version_number,
                 parent_version_id=parent_version_id,
                 state=DatasetVersionState.READY,
-                source_format=manifest.source_format,
-                row_count=manifest.row_count,
-                byte_size=manifest.byte_size,
-                schema_snapshot=manifest.schema.model_dump(mode="json"),
+                source_format=source_format,
+                row_count=row_count,
+                byte_size=object_ref.byte_size,
+                schema_snapshot=schema.model_dump(mode="json"),
             )
             artifact = unit_of_work.artifacts.create(
                 dataset_version_id=version.id,
