@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  type CSSProperties,
-  type DragEvent,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type CSSProperties, type DragEvent, useRef, useState } from "react";
 
 import {
   type DatasetIngestion,
@@ -19,6 +13,7 @@ import {
 } from "@/lib/dataset-upload";
 
 const WORKFLOW = ["Data", "Prepare", "Explore", "Analyze", "Model", "Results"];
+const ACCEPTED_EXTENSIONS = [".csv", ".parquet"];
 const PREVIEW_PAGE_SIZE = 200;
 const ROW_HEIGHT = 38;
 const VIEWPORT_HEIGHT = 420;
@@ -40,9 +35,7 @@ function datasetNameFromFile(file: File): string {
 }
 
 function formatBytes(value: number): string {
-  if (value < 1024) {
-    return `${value} B`;
-  }
+  if (value < 1024) return `${value} B`;
   const units = ["KB", "MB", "GB", "TB"];
   let amount = value / 1024;
   let unit = units[0];
@@ -54,15 +47,9 @@ function formatBytes(value: number): string {
 }
 
 function formatCell(value: unknown): string {
-  if (value === null || value === undefined) {
-    return "—";
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
   try {
     return JSON.stringify(value);
   } catch {
@@ -71,17 +58,13 @@ function formatCell(value: unknown): string {
 }
 
 function phaseLabel(phase: WorkspacePhase, status: DatasetIngestion | null): string {
-  if (phase === "uploading") {
-    return "Uploading directly to private storage";
-  }
+  if (phase === "uploading") return "Uploading directly to private storage";
   if (phase === "processing") {
     return status?.status === "running"
       ? "Canonicalizing dataset"
       : "Waiting for ingestion worker";
   }
-  if (phase === "profiling") {
-    return "Profiling data quality";
-  }
+  if (phase === "profiling") return "Profiling data quality";
   return "Preparing workspace";
 }
 
@@ -96,7 +79,6 @@ function VirtualizedPreview({
   loading: boolean;
   onPageChange: (offset: number) => void;
 }) {
-  const viewportRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const overscan = 6;
   const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - overscan);
@@ -104,9 +86,8 @@ function VirtualizedPreview({
   const endIndex = Math.min(preview.rows.length, startIndex + visibleCount);
   const visibleRows = preview.rows.slice(startIndex, endIndex);
   const minWidth = Math.max(760, 58 + preview.columns.length * 164);
-  const template = `58px repeat(${preview.columns.length}, minmax(164px, 1fr))`;
   const gridStyle: CSSProperties = {
-    gridTemplateColumns: template,
+    gridTemplateColumns: `58px repeat(${preview.columns.length}, minmax(164px, 1fr))`,
     minWidth,
   };
   const hasPrevious = preview.offset > 0;
@@ -145,14 +126,11 @@ function VirtualizedPreview({
 
       <div
         className="data-grid-scroll"
-        ref={viewportRef}
         style={{ height: VIEWPORT_HEIGHT }}
         onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
       >
         <div className="data-grid-header" role="row" style={gridStyle}>
-          <div className="grid-cell row-number-cell" role="columnheader">
-            #
-          </div>
+          <div className="grid-cell row-number-cell" role="columnheader">#</div>
           {preview.columns.map((column) => (
             <div className="grid-cell column-header-cell" role="columnheader" key={column}>
               {column}
@@ -213,14 +191,12 @@ export function DataWorkspace() {
   const [error, setError] = useState<string | null>(null);
 
   const isBusy = ["uploading", "processing", "profiling"].includes(phase);
-  const acceptedTypes = useMemo(() => [".csv", ".parquet"], []);
+  const toolbarTitle = profile?.dataset_name ?? (datasetName || "Untitled analysis");
 
   function chooseFile(candidate: File | null) {
-    if (!candidate) {
-      return;
-    }
+    if (!candidate) return;
     const lowerName = candidate.name.toLowerCase();
-    if (!acceptedTypes.some((extension) => lowerName.endsWith(extension))) {
+    if (!ACCEPTED_EXTENSIONS.some((extension) => lowerName.endsWith(extension))) {
       setError("Choose a CSV or Parquet file.");
       return;
     }
@@ -242,9 +218,7 @@ export function DataWorkspace() {
   async function waitForCompletion(initial: DatasetIngestion): Promise<DatasetIngestion> {
     let current = initial;
     for (let attempt = 0; attempt < 360; attempt += 1) {
-      if (current.status === "succeeded") {
-        return current;
-      }
+      if (current.status === "succeeded") return current;
       if (current.status === "failed" || current.status === "cancelled") {
         throw new Error(`Ingestion ${current.status}.`);
       }
@@ -256,9 +230,7 @@ export function DataWorkspace() {
   }
 
   async function startAnalysis() {
-    if (!file || !datasetName.trim()) {
-      return;
-    }
+    if (!file || !datasetName.trim()) return;
     setError(null);
     setPhase("uploading");
     setUploadProgress(0);
@@ -286,18 +258,11 @@ export function DataWorkspace() {
   }
 
   async function loadPreview(offset: number) {
-    if (!profile) {
-      return;
-    }
+    if (!profile) return;
     setPreviewLoading(true);
     setError(null);
     try {
-      const nextPreview = await getDatasetPreview(
-        profile.version_id,
-        offset,
-        PREVIEW_PAGE_SIZE,
-      );
-      setPreview(nextPreview);
+      setPreview(await getDatasetPreview(profile.version_id, offset, PREVIEW_PAGE_SIZE));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not load preview rows.");
     } finally {
@@ -314,9 +279,7 @@ export function DataWorkspace() {
     setProfile(null);
     setPreview(null);
     setError(null);
-    if (inputRef.current) {
-      inputRef.current.value = "";
-    }
+    if (inputRef.current) inputRef.current.value = "";
   }
 
   return (
@@ -324,42 +287,31 @@ export function DataWorkspace() {
       <aside className="sidebar glass-surface" aria-label="Primary navigation">
         <div className="brand-lockup">
           <div className="brand-mark">A</div>
-          <div>
-            <strong>Analytica</strong>
-            <span>Workbench</span>
-          </div>
+          <div><strong>Analytica</strong><span>Workbench</span></div>
         </div>
         <nav>
           {WORKFLOW.map((item, index) => (
             <button className={index === 0 ? "nav-item active" : "nav-item"} key={item} type="button">
-              <span className="nav-index">0{index + 1}</span>
-              {item}
+              <span className="nav-index">0{index + 1}</span>{item}
             </button>
           ))}
         </nav>
-        <div className="sidebar-status">
-          <span className="status-dot" />
-          Local workspace
-        </div>
+        <div className="sidebar-status"><span className="status-dot" />Local workspace</div>
       </aside>
 
       <section className="workspace">
         <header className="toolbar glass-surface">
           <div className="toolbar-title">
             <p className="eyebrow">Analytica Workbench</p>
-            <h1>{profile?.dataset_name ?? datasetName || "Untitled analysis"}</h1>
+            <h1>{toolbarTitle}</h1>
           </div>
           <div className="toolbar-actions">
-            {profile ? (
-              <span className="version-badge">Version {profile.version_number}</span>
-            ) : null}
+            {profile ? <span className="version-badge">Version {profile.version_number}</span> : null}
             <button type="button" onClick={() => inputRef.current?.click()} disabled={isBusy}>
               Import data
             </button>
             {profile ? (
-              <button className="primary-action" type="button" onClick={resetWorkspace}>
-                New analysis
-              </button>
+              <button className="primary-action" type="button" onClick={resetWorkspace}>New analysis</button>
             ) : null}
           </div>
         </header>
@@ -379,8 +331,7 @@ export function DataWorkspace() {
                 <p className="eyebrow">Ready to analyze</p>
                 <h2>{profile.dataset_name}</h2>
                 <p className="dataset-meta">
-                  Canonical Parquet · {formatBytes(profile.byte_size)} · Version{" "}
-                  {profile.version_number}
+                  Canonical Parquet · {formatBytes(profile.byte_size)} · Version {profile.version_number}
                 </p>
               </div>
               <div className="health-chip">
@@ -392,22 +343,14 @@ export function DataWorkspace() {
             </div>
 
             <div className="metric-grid" aria-label="Dataset summary">
+              <article className="metric-card"><span>Rows</span><strong>{profile.row_count.toLocaleString()}</strong></article>
+              <article className="metric-card"><span>Columns</span><strong>{profile.column_count.toLocaleString()}</strong></article>
               <article className="metric-card">
-                <span>Rows</span>
-                <strong>{profile.row_count.toLocaleString()}</strong>
-              </article>
-              <article className="metric-card">
-                <span>Columns</span>
-                <strong>{profile.column_count.toLocaleString()}</strong>
-              </article>
-              <article className="metric-card">
-                <span>Missing cells</span>
-                <strong>{profile.missing_percentage.toFixed(2)}%</strong>
+                <span>Missing cells</span><strong>{profile.missing_percentage.toFixed(2)}%</strong>
                 <small>{profile.missing_cells.toLocaleString()} cells</small>
               </article>
               <article className="metric-card">
-                <span>Duplicate rows</span>
-                <strong>{profile.duplicate_percentage.toFixed(2)}%</strong>
+                <span>Duplicate rows</span><strong>{profile.duplicate_percentage.toFixed(2)}%</strong>
                 <small>{profile.duplicate_rows.toLocaleString()} rows</small>
               </article>
             </div>
@@ -419,41 +362,29 @@ export function DataWorkspace() {
                 loading={previewLoading}
                 onPageChange={loadPreview}
               />
-
               <aside className="profile-panel" aria-label="Dataset profile">
                 <div className="panel-heading">
-                  <div>
-                    <p className="eyebrow">Profile</p>
-                    <h3>Columns</h3>
-                  </div>
+                  <div><p className="eyebrow">Profile</p><h3>Columns</h3></div>
                   <span>{profile.column_count}</span>
                 </div>
-
                 {profile.warnings.length > 0 ? (
                   <div className="quality-warning-list">
                     {profile.warnings.map((warning) => (
                       <div className={`quality-warning ${warning.severity}`} key={warning.code}>
-                        <span />
-                        <p>{warning.message}</p>
+                        <span /><p>{warning.message}</p>
                       </div>
                     ))}
                   </div>
                 ) : null}
-
                 <div className="column-profile-list">
                   {profile.columns.map((column) => (
                     <article className="column-profile" key={column.name}>
                       <div className="column-profile-title">
-                        <strong>{column.display_name}</strong>
-                        <span>{column.data_type}</span>
+                        <strong>{column.display_name}</strong><span>{column.data_type}</span>
                       </div>
                       <div className="column-profile-stats">
-                        <span>
-                          Missing <strong>{column.null_percentage.toFixed(1)}%</strong>
-                        </span>
-                        <span>
-                          Distinct <strong>{column.distinct_count.toLocaleString()}</strong>
-                        </span>
+                        <span>Missing <strong>{column.null_percentage.toFixed(1)}%</strong></span>
+                        <span>Distinct <strong>{column.distinct_count.toLocaleString()}</strong></span>
                       </div>
                     </article>
                   ))}
@@ -481,13 +412,8 @@ export function DataWorkspace() {
               {file ? (
                 <>
                   <div className="selected-file-row">
-                    <div>
-                      <strong>{file.name}</strong>
-                      <span>{formatBytes(file.size)}</span>
-                    </div>
-                    <button type="button" onClick={() => inputRef.current?.click()} disabled={isBusy}>
-                      Replace
-                    </button>
+                    <div><strong>{file.name}</strong><span>{formatBytes(file.size)}</span></div>
+                    <button type="button" onClick={() => inputRef.current?.click()} disabled={isBusy}>Replace</button>
                   </div>
                   <label className="dataset-name-field">
                     <span>Dataset name</span>
@@ -509,8 +435,7 @@ export function DataWorkspace() {
                 </>
               ) : (
                 <>
-                  <strong>Drop a dataset here</strong>
-                  <span>CSV or Parquet</span>
+                  <strong>Drop a dataset here</strong><span>CSV or Parquet</span>
                   <button className="secondary-action" type="button" onClick={() => inputRef.current?.click()}>
                     Choose file
                   </button>
@@ -521,10 +446,7 @@ export function DataWorkspace() {
             {isBusy ? (
               <div className="processing-card" aria-live="polite">
                 <div className="processing-copy">
-                  <div>
-                    <p className="eyebrow">In progress</p>
-                    <strong>{phaseLabel(phase, ingestion)}</strong>
-                  </div>
+                  <div><p className="eyebrow">In progress</p><strong>{phaseLabel(phase, ingestion)}</strong></div>
                   <span>{phase === "uploading" ? `${uploadProgress}%` : ingestion?.status ?? "working"}</span>
                 </div>
                 <div className="progress-track" aria-hidden="true">
@@ -541,9 +463,7 @@ export function DataWorkspace() {
                 </div>
                 <div className="stage-row">
                   <span className="complete">Upload</span>
-                  <span className={phase === "processing" || phase === "profiling" ? "complete" : ""}>
-                    Ingest
-                  </span>
+                  <span className={phase === "processing" || phase === "profiling" ? "complete" : ""}>Ingest</span>
                   <span className={phase === "profiling" ? "complete" : ""}>Profile</span>
                 </div>
               </div>
@@ -551,8 +471,7 @@ export function DataWorkspace() {
 
             {error ? (
               <div className="error-banner" role="alert">
-                <strong>Could not prepare this dataset.</strong>
-                <span>{error}</span>
+                <strong>Could not prepare this dataset.</strong><span>{error}</span>
                 <button type="button" onClick={() => setPhase("idle")}>Try again</button>
               </div>
             ) : null}
