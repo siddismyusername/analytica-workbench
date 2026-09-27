@@ -44,6 +44,20 @@ _OPERATION_CATALOG = (
         description="Keep one copy of each distinct row after prior pipeline operations.",
         execution_class="interactive",
     ),
+    OperationDescriptor(
+        type="rename_column",
+        version=1,
+        label="Rename column",
+        description="Rename one column while preserving its stable internal identifier.",
+        execution_class="interactive",
+    ),
+    OperationDescriptor(
+        type="cast_column",
+        version=1,
+        label="Change column type",
+        description="Convert one column to a supported analytical data type.",
+        execution_class="interactive",
+    ),
 )
 
 
