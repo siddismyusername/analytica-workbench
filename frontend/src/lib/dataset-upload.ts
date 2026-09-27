@@ -5,6 +5,45 @@ export type DatasetIngestion = {
   status: "queued" | "running" | "succeeded" | "failed" | "cancelled";
 };
 
+export type DatasetColumnProfile = {
+  name: string;
+  display_name: string;
+  data_type: string;
+  storage_type: string | null;
+  nullable: boolean;
+  null_count: number;
+  null_percentage: number;
+  distinct_count: number;
+};
+
+export type DatasetProfile = {
+  version_id: string;
+  dataset_id: string;
+  dataset_name: string;
+  version_number: number;
+  row_count: number;
+  column_count: number;
+  byte_size: number;
+  missing_cells: number;
+  missing_percentage: number;
+  duplicate_rows: number;
+  duplicate_percentage: number;
+  columns: DatasetColumnProfile[];
+  warnings: Array<{
+    code: string;
+    severity: string;
+    message: string;
+  }>;
+};
+
+export type DatasetPreview = {
+  version_id: string;
+  columns: string[];
+  rows: unknown[][];
+  offset: number;
+  limit: number;
+};
+
 type PresignedUpload = {
   pathname: string;
   presignedUrl: string;
@@ -29,9 +68,39 @@ async function errorText(response: Response): Promise<string> {
   }
 }
 
+function putFileWithProgress(
+  url: string,
+  contentType: string,
+  file: File,
+  onProgress?: (percentage: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("PUT", url);
+    request.setRequestHeader("Content-Type", contentType);
+    request.upload.onprogress = (event) => {
+      if (!event.lengthComputable || !onProgress) {
+        return;
+      }
+      onProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+    };
+    request.onerror = () => reject(new Error("Object upload failed due to a network error"));
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) {
+        onProgress?.(100);
+        resolve();
+        return;
+      }
+      reject(new Error(`Object upload failed: HTTP ${request.status}`));
+    };
+    request.send(file);
+  });
+}
+
 export async function uploadDataset(
   file: File,
   datasetName: string,
+  onProgress?: (percentage: number) => void,
 ): Promise<DatasetIngestion> {
   const presignResponse = await fetch("/api/uploads/presign", {
     method: "POST",
@@ -46,14 +115,12 @@ export async function uploadDataset(
   }
   const presigned = (await presignResponse.json()) as PresignedUpload;
 
-  const uploadResponse = await fetch(presigned.presignedUrl, {
-    method: "PUT",
-    headers: { "Content-Type": presigned.contentType },
-    body: file,
-  });
-  if (!uploadResponse.ok) {
-    throw new Error(`Object upload failed: HTTP ${uploadResponse.status}`);
-  }
+  await putFileWithProgress(
+    presigned.presignedUrl,
+    presigned.contentType,
+    file,
+    onProgress,
+  );
 
   const ingestionResponse = await fetch(`${backendBaseUrl()}/api/v1/datasets/ingestions`, {
     method: "POST",
@@ -78,4 +145,34 @@ export async function getIngestionStatus(jobId: string): Promise<DatasetIngestio
     throw new Error(`Could not read ingestion status: ${await errorText(response)}`);
   }
   return (await response.json()) as DatasetIngestion;
+}
+
+export async function getDatasetProfile(versionId: string): Promise<DatasetProfile> {
+  const response = await fetch(
+    `${backendBaseUrl()}/api/v1/datasets/versions/${encodeURIComponent(versionId)}/profile`,
+    { cache: "no-store" },
+  );
+  if (!response.ok) {
+    throw new Error(`Could not profile dataset: ${await errorText(response)}`);
+  }
+  return (await response.json()) as DatasetProfile;
+}
+
+export async function getDatasetPreview(
+  versionId: string,
+  offset = 0,
+  limit = 200,
+): Promise<DatasetPreview> {
+  const query = new URLSearchParams({
+    offset: String(offset),
+    limit: String(limit),
+  });
+  const response = await fetch(
+    `${backendBaseUrl()}/api/v1/datasets/versions/${encodeURIComponent(versionId)}/preview?${query}`,
+    { cache: "no-store" },
+  );
+  if (!response.ok) {
+    throw new Error(`Could not preview dataset: ${await errorText(response)}`);
+  }
+  return (await response.json()) as DatasetPreview;
 }
