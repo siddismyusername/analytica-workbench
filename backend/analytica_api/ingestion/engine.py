@@ -4,7 +4,7 @@ from uuid import uuid4
 import duckdb
 
 from analytica_api.config import Settings
-from analytica_api.domain.datasets import DataType, DatasetColumn, DatasetSchema
+from analytica_api.domain.datasets import DatasetColumn, DatasetSchema, DataType
 from analytica_api.ingestion.models import IngestionManifest, SourceFormat
 
 
