@@ -1,12 +1,9 @@
 import hashlib
+import mimetypes
 import shutil
 from pathlib import Path, PurePosixPath
 
-from analytica_api.storage.contracts import StorageObjectRef
-
-
-class StorageError(RuntimeError):
-    pass
+from analytica_api.storage.contracts import StorageError, StorageObjectRef
 
 
 def _sha256(path: Path) -> str:
@@ -57,6 +54,18 @@ class LocalArtifactStore:
             checksum_sha256=_sha256(target),
         )
 
+    def stat(self, key: str) -> StorageObjectRef:
+        path = self._resolve_key(key)
+        if not path.is_file():
+            raise StorageError(f"artifact is missing: {key}")
+        content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        return StorageObjectRef(
+            key=key,
+            byte_size=path.stat().st_size,
+            content_type=content_type,
+            checksum_sha256=_sha256(path),
+        )
+
     def materialize(self, object_ref: StorageObjectRef, target_path: Path) -> Path:
         source = self._resolve_key(object_ref.key)
         if not source.is_file():
@@ -67,6 +76,9 @@ class LocalArtifactStore:
             raise StorageError(f"materialization target already exists: {target}")
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
+        if target.stat().st_size != object_ref.byte_size:
+            target.unlink(missing_ok=True)
+            raise StorageError("materialized artifact size does not match metadata")
         return target
 
     def delete(self, object_ref: StorageObjectRef) -> None:

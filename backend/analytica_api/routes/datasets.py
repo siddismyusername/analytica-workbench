@@ -1,21 +1,12 @@
-from functools import lru_cache
-from pathlib import Path
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 
-from analytica_api.config import get_settings
-from analytica_api.ingestion.engine import IngestionEngine
-from analytica_api.persistence.database import Database
-from analytica_api.persistence.unit_of_work import SqlAlchemyUnitOfWork
-from analytica_api.services.control_plane import ControlPlaneService
-from analytica_api.services.ingestion import DatasetIngestionService
-from analytica_api.services.preview import DatasetPreviewService
-from analytica_api.storage.contracts import ArtifactStore, StorageObjectRef
-from analytica_api.storage.local import LocalArtifactStore
-from analytica_api.storage.vercel_blob import VercelBlobArtifactStore
+from analytica_api.runtime import get_control_plane, get_ingestion_service, get_preview_service
+from analytica_api.services.control_plane import ControlPlaneError
+from analytica_api.storage.contracts import StorageError
 
 router = APIRouter(tags=["datasets"])
 
@@ -26,15 +17,13 @@ class UploadedDatasetRequest(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     source_key: str = Field(min_length=1)
     source_format: Literal["csv", "parquet"]
-    source_byte_size: int = Field(ge=0)
-    source_content_type: str = Field(min_length=1)
     idempotency_key: str = Field(min_length=1, max_length=255)
 
 
 class IngestionResponse(BaseModel):
     job_id: UUID
     dataset_id: UUID
-    version_id: UUID
+    version_id: UUID | None
     status: str
 
 
@@ -46,55 +35,42 @@ class PreviewResponse(BaseModel):
     limit: int
 
 
-@lru_cache(maxsize=1)
-def _services() -> tuple[ControlPlaneService, DatasetIngestionService, DatasetPreviewService]:
-    settings = get_settings()
-    database = Database(settings.database_url)
-    control_plane = ControlPlaneService(
-        lambda: SqlAlchemyUnitOfWork(database.session_factory)
+def _ingestion_response(job_id: UUID) -> IngestionResponse:
+    job = get_control_plane().get_job(job_id)
+    if job.dataset_id is None:
+        raise ControlPlaneError("ingestion job has no dataset")
+    return IngestionResponse(
+        job_id=job.id,
+        dataset_id=job.dataset_id,
+        version_id=job.output_version_id,
+        status=job.status.value,
     )
-    store: ArtifactStore
-    if settings.artifact_store_backend == "vercel_blob":
-        store = VercelBlobArtifactStore()
-    else:
-        store = LocalArtifactStore(Path(settings.local_artifact_root))
-
-    ingestion = DatasetIngestionService(
-        control_plane=control_plane,
-        artifact_store=store,
-        ingestion_engine=IngestionEngine(settings),
-    )
-    preview = DatasetPreviewService(
-        control_plane=control_plane,
-        artifact_store=store,
-    )
-    return control_plane, ingestion, preview
 
 
-@router.post("/datasets/ingestions", response_model=IngestionResponse)
-def ingest_uploaded_dataset(payload: UploadedDatasetRequest) -> IngestionResponse:
-    _, ingestion, _ = _services()
-    source_ref = StorageObjectRef(
-        key=payload.source_key,
-        byte_size=payload.source_byte_size,
-        content_type=payload.source_content_type,
-    )
+@router.post(
+    "/datasets/ingestions",
+    response_model=IngestionResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def ingest_uploaded_dataset(payload: UploadedDatasetRequest) -> IngestionResponse:
     try:
-        result = ingestion.ingest_uploaded_dataset(
+        submission = await get_ingestion_service().submit_uploaded_dataset(
             name=payload.name,
-            source_ref=source_ref,
+            source_key=payload.source_key,
             source_format=payload.source_format,
             idempotency_key=payload.idempotency_key,
         )
-    except Exception as exc:
+        return _ingestion_response(submission.job.id)
+    except (ControlPlaneError, StorageError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    return IngestionResponse(
-        job_id=result.job.id,
-        dataset_id=result.dataset_id,
-        version_id=result.version_id,
-        status=result.job.status.value,
-    )
+
+@router.get("/datasets/ingestions/{job_id}", response_model=IngestionResponse)
+def ingestion_status(job_id: UUID) -> IngestionResponse:
+    try:
+        return _ingestion_response(job_id)
+    except ControlPlaneError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/datasets/versions/{version_id}/preview", response_model=PreviewResponse)
@@ -103,10 +79,9 @@ def preview_dataset(
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
 ) -> PreviewResponse:
-    _, _, preview = _services()
     try:
-        result = preview.preview(version_id, offset=offset, limit=limit)
-    except LookupError as exc:
+        result = get_preview_service().preview(version_id, offset=offset, limit=limit)
+    except (LookupError, ControlPlaneError) as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     return PreviewResponse(

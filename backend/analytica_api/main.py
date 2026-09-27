@@ -11,7 +11,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
         title=settings.app_name,
-        version="0.3.0",
+        version="0.4.0",
         description="Stateless analytical control API for the Analytica Workbench.",
     )
 

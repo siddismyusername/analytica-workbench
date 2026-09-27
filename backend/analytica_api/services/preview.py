@@ -35,12 +35,9 @@ class DatasetPreviewService:
         if not 1 <= limit <= 200:
             raise ValueError("limit must be between 1 and 200")
 
-        artifact = self.control_plane.get_version_artifact(
-            version_id, kind="canonical_dataset"
+        artifact = self.control_plane.get_artifact_for_version_kind(
+            version_id, "canonical_dataset"
         )
-        if artifact is None:
-            raise LookupError(f"canonical dataset artifact not found: {version_id}")
-
         object_ref = StorageObjectRef(
             key=artifact.storage_key,
             byte_size=artifact.byte_size,
