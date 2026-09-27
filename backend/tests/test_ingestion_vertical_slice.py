@@ -1,15 +1,13 @@
 import asyncio
 from pathlib import Path
 
-import pytest
-
 from analytica_api.config import Settings
 from analytica_api.domain.control_plane import JobStatus
 from analytica_api.persistence.database import Database
 from analytica_api.persistence.models import Base
 from analytica_api.persistence.unit_of_work import SqlAlchemyUnitOfWork
 from analytica_api.queue.providers import InlineJobQueue
-from analytica_api.services.control_plane import ControlPlaneError, ControlPlaneService
+from analytica_api.services.control_plane import ControlPlaneService
 from analytica_api.services.ingestion import DatasetIngestionService
 from analytica_api.services.ingestion_worker import IngestionWorker
 from analytica_api.services.preview import DatasetPreviewService
@@ -33,7 +31,7 @@ def _stack(tmp_path: Path):
     return database, store, control_plane, service, preview
 
 
-def test_direct_upload_becomes_durable_job_parquet_version_and_preview(tmp_path: Path) -> None:
+def test_direct_upload_becomes_one_durable_job_parquet_version_and_preview(tmp_path: Path) -> None:
     database, store, control_plane, service, preview = _stack(tmp_path)
     upload = tmp_path / "customers.csv"
     upload.write_text("name,age\nAda,36\nGrace,40\n", encoding="utf-8")
@@ -48,16 +46,12 @@ def test_direct_upload_becomes_durable_job_parquet_version_and_preview(tmp_path:
             service.submit_uploaded_dataset(
                 name="Customers",
                 source_key=source_ref.key,
-                source_format="csv",
-                idempotency_key="upload:customers:1",
             )
         )
         repeated = asyncio.run(
             service.submit_uploaded_dataset(
-                name="Customers",
+                name="A different client name on retry",
                 source_key=source_ref.key,
-                source_format="csv",
-                idempotency_key="upload:customers:1",
             )
         )
         job = control_plane.get_job(first.job.id)
@@ -65,6 +59,7 @@ def test_direct_upload_becomes_durable_job_parquet_version_and_preview(tmp_path:
         assert job.output_version_id is not None
         assert repeated.job.id == first.job.id
         assert repeated.dataset_id == first.dataset_id
+        assert repeated.job.attempt_count == 1
 
         dataset_preview = preview.preview(job.output_version_id, limit=10)
         assert dataset_preview.columns == ("name", "age")
@@ -73,7 +68,7 @@ def test_direct_upload_becomes_durable_job_parquet_version_and_preview(tmp_path:
         database.dispose()
 
 
-def test_idempotency_key_cannot_be_reused_for_different_upload(tmp_path: Path) -> None:
+def test_different_source_objects_receive_different_server_idempotency_keys(tmp_path: Path) -> None:
     database, store, _, service, _ = _stack(tmp_path)
     first = tmp_path / "first.csv"
     second = tmp_path / "second.csv"
@@ -83,22 +78,14 @@ def test_idempotency_key_cannot_be_reused_for_different_upload(tmp_path: Path) -
     second_ref = store.put_file(second, key="raw/b/second.csv", content_type="text/csv")
 
     try:
-        asyncio.run(
-            service.submit_uploaded_dataset(
-                name="First",
-                source_key=first_ref.key,
-                source_format="csv",
-                idempotency_key="same-key",
-            )
+        first_submission = asyncio.run(
+            service.submit_uploaded_dataset(name="First", source_key=first_ref.key)
         )
-        with pytest.raises(ControlPlaneError, match="different upload data"):
-            asyncio.run(
-                service.submit_uploaded_dataset(
-                    name="Second",
-                    source_key=second_ref.key,
-                    source_format="csv",
-                    idempotency_key="same-key",
-                )
-            )
+        second_submission = asyncio.run(
+            service.submit_uploaded_dataset(name="Second", source_key=second_ref.key)
+        )
+        assert first_submission.job.id != second_submission.job.id
+        assert first_submission.dataset_id != second_submission.dataset_id
+        assert first_submission.job.idempotency_key != second_submission.job.idempotency_key
     finally:
         database.dispose()

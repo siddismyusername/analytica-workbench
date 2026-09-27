@@ -9,7 +9,6 @@ type PresignedUpload = {
   pathname: string;
   presignedUrl: string;
   expiresAt: string;
-  sourceFormat: "csv" | "parquet";
   contentType: string;
 };
 
@@ -39,7 +38,6 @@ export async function uploadDataset(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       filename: file.name,
-      contentType: file.type || undefined,
       size: file.size,
     }),
   });
@@ -63,8 +61,6 @@ export async function uploadDataset(
     body: JSON.stringify({
       name: datasetName,
       source_key: presigned.pathname,
-      source_format: presigned.sourceFormat,
-      idempotency_key: `upload:${crypto.randomUUID()}`,
     }),
   });
   if (!ingestionResponse.ok) {

@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 from uuid import UUID
@@ -17,17 +18,26 @@ class IngestionSubmission:
     dataset_id: UUID
 
 
-def _validate_source_key(source_key: str, source_format: SourceFormat) -> None:
+def _source_format(source_key: str) -> SourceFormat:
     path = PurePosixPath(source_key)
-    if path.is_absolute() or ".." in path.parts or not path.parts or path.parts[0] != "raw":
-        raise ValueError("source_key must identify an object under the raw/ namespace")
-    expected_suffix = ".csv" if source_format == "csv" else ".parquet"
-    if path.suffix.lower() != expected_suffix:
-        raise ValueError(f"source key extension must be {expected_suffix}")
+    if path.is_absolute() or ".." in path.parts or len(path.parts) != 3 or path.parts[0] != "raw":
+        raise ValueError("source_key must identify an object under raw/<upload-id>/<filename>")
+
+    suffix = path.suffix.lower()
+    if suffix == ".csv":
+        return "csv"
+    if suffix == ".parquet":
+        return "parquet"
+    raise ValueError("only CSV and Parquet source objects are supported")
+
+
+def _idempotency_key(source_key: str) -> str:
+    digest = hashlib.sha256(source_key.encode("utf-8")).hexdigest()
+    return f"ingest:{digest}"
 
 
 class DatasetIngestionService:
-    """Validate a direct upload, persist a durable ingestion job, and dispatch it."""
+    """Verify a direct upload, persist one durable ingestion job, and dispatch it."""
 
     def __init__(
         self,
@@ -47,10 +57,8 @@ class DatasetIngestionService:
         *,
         name: str,
         source_key: str,
-        source_format: SourceFormat,
-        idempotency_key: str,
     ) -> IngestionSubmission:
-        _validate_source_key(source_key, source_format)
+        source_format = _source_format(source_key)
         source_ref = await asyncio.to_thread(self.artifact_store.stat, source_key)
 
         if (
@@ -60,6 +68,7 @@ class DatasetIngestionService:
             limit = self.settings.max_upload_bytes
             raise ValueError(f"uploaded object exceeds configured limit of {limit} bytes")
 
+        idempotency_key = _idempotency_key(source_ref.key)
         created = await asyncio.to_thread(
             self.control_plane.create_ingestion_job,
             dataset_name=name,
@@ -69,7 +78,7 @@ class DatasetIngestionService:
         )
 
         if created.job.status in {JobStatus.QUEUED, JobStatus.FAILED}:
-            dispatch_key = f"ingest:{created.job.id}:attempt:{created.job.attempt_count + 1}"
+            dispatch_key = f"{idempotency_key}:attempt:{created.job.attempt_count + 1}"
             await self.job_queue.publish_ingestion(
                 created.job.id,
                 idempotency_key=dispatch_key,

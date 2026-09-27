@@ -2,29 +2,20 @@ import { issueSignedToken, presignUrl } from "@vercel/blob";
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 
-type SourceFormat = "csv" | "parquet";
-
 type UploadRequest = {
   filename?: unknown;
-  contentType?: unknown;
   size?: unknown;
 };
 
 const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
 
-function classifyFile(filename: string): {
-  sourceFormat: SourceFormat;
-  defaultContentType: string;
-} | null {
+function classifyFile(filename: string): { contentType: string } | null {
   const lower = filename.toLowerCase();
   if (lower.endsWith(".csv")) {
-    return { sourceFormat: "csv", defaultContentType: "text/csv" };
+    return { contentType: "text/csv" };
   }
   if (lower.endsWith(".parquet")) {
-    return {
-      sourceFormat: "parquet",
-      defaultContentType: "application/vnd.apache.parquet",
-    };
+    return { contentType: "application/vnd.apache.parquet" };
   }
   return null;
 }
@@ -45,7 +36,21 @@ function configuredUploadLimit(): number | null {
   return value;
 }
 
+function signingEnabled(): boolean {
+  return (
+    process.env.NODE_ENV !== "production" ||
+    process.env.ANALYTICA_UPLOAD_SIGNING_ENABLED === "true"
+  );
+}
+
 export async function POST(request: NextRequest) {
+  if (!signingEnabled()) {
+    return NextResponse.json(
+      { error: "Upload signing is disabled until production authentication is configured" },
+      { status: 503 },
+    );
+  }
+
   let body: UploadRequest;
   try {
     body = (await request.json()) as UploadRequest;
@@ -83,18 +88,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Upload exceeds configured size limit" }, { status: 413 });
   }
 
-  const requestedType =
-    typeof body.contentType === "string" && body.contentType.trim()
-      ? body.contentType.trim()
-      : classification.defaultContentType;
   const pathname = `raw/${randomUUID()}/${filename}`;
   const validUntil = Date.now() + FIFTEEN_MINUTES_MS;
+  const contentType = classification.contentType;
 
   const signedToken = await issueSignedToken({
     pathname,
     operations: ["put"],
     validUntil,
-    allowedContentTypes: [requestedType],
+    allowedContentTypes: [contentType],
     maximumSizeInBytes: body.size,
   });
   const { presignedUrl } = await presignUrl(signedToken, {
@@ -102,7 +104,7 @@ export async function POST(request: NextRequest) {
     operation: "put",
     access: "private",
     validUntil,
-    allowedContentTypes: [requestedType],
+    allowedContentTypes: [contentType],
     maximumSizeInBytes: body.size,
     allowOverwrite: false,
     addRandomSuffix: false,
@@ -112,7 +114,6 @@ export async function POST(request: NextRequest) {
     pathname,
     presignedUrl,
     expiresAt: new Date(validUntil).toISOString(),
-    sourceFormat: classification.sourceFormat,
-    contentType: requestedType,
+    contentType,
   });
 }
