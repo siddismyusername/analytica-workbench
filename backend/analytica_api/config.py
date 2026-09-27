@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     cors_allowed_origins: str = "http://localhost:3000"
     duckdb_threads: int = Field(default=1, ge=1, le=64)
     database_url: str = "sqlite+pysqlite:///./analytica.db"
+    artifact_store_backend: Literal["local", "vercel_blob"] = "local"
     local_artifact_root: str = ".analytica/artifacts"
 
     @property
