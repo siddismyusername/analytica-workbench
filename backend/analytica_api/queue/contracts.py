@@ -9,3 +9,10 @@ class JobQueue(Protocol):
         *,
         idempotency_key: str,
     ) -> str | None: ...
+
+    async def publish_transform(
+        self,
+        job_id: UUID,
+        *,
+        idempotency_key: str,
+    ) -> str | None: ...
