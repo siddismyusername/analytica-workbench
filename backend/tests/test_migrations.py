@@ -1,8 +1,9 @@
 from pathlib import Path
 
-from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect
+
+from alembic import command
 
 
 def test_initial_control_plane_migration_round_trips_on_sqlite(tmp_path: Path) -> None:
