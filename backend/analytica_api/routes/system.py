@@ -27,5 +27,8 @@ async def capabilities() -> dict[str, object]:
             "scikit-learn",
         ],
         "pipeline_schema_version": 1,
-        "formats": ["csv", "xlsx", "parquet"],
+        "ingestion": {
+            "implemented": ["csv", "parquet"],
+            "planned": ["xlsx"],
+        },
     }

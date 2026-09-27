@@ -21,6 +21,7 @@ class DatasetColumn(BaseModel):
     physical_name: str = Field(min_length=1)
     display_name: str = Field(min_length=1)
     data_type: DataType
+    storage_type: str | None = None
     nullable: bool = True
 
 
