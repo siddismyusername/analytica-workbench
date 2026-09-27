@@ -1,4 +1,4 @@
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Any
 
 import duckdb
@@ -125,12 +125,15 @@ class PipelineCompiler:
                 continue
             new_name = names[column.column_id]
             columns.append(
-                replace(
-                    column,
-                    physical_name=new_name,
-                    display_name=(new_name if new_name != column.physical_name else column.display_name),
-                    data_type=target_types[column.column_id],
-                    storage_type=target_storage[column.column_id],
+                column.model_copy(
+                    update={
+                        "physical_name": new_name,
+                        "display_name": (
+                            new_name if new_name != column.physical_name else column.display_name
+                        ),
+                        "data_type": target_types[column.column_id],
+                        "storage_type": target_storage[column.column_id],
+                    }
                 )
             )
         return DatasetSchema(columns=tuple(columns))
