@@ -71,7 +71,11 @@ def test_preview_is_read_only_and_apply_creates_child_version(tmp_path: Path) ->
         version_id = _ingest(tmp_path, store, ingestion, control_plane)
         original = control_plane.get_version(version_id)
         schema = original.schema_snapshot["columns"]
-        age_id = next(column["column_id"] for column in schema if column["physical_name"] == "age")
+        age_id = next(
+            column["column_id"]
+            for column in schema
+            if column["physical_name"] == "age"
+        )
         operation = FillNullOperation(
             operation_id="fill-age",
             column_id=age_id,
@@ -112,13 +116,29 @@ def test_prepare_operations_chain_through_immutable_versions(tmp_path: Path) -> 
     try:
         current = _ingest(tmp_path, store, ingestion, control_plane)
         schema = control_plane.get_version(current).schema_snapshot["columns"]
-        name_id = next(column["column_id"] for column in schema if column["physical_name"] == "name")
-        age_id = next(column["column_id"] for column in schema if column["physical_name"] == "age")
+        name_id = next(
+            column["column_id"]
+            for column in schema
+            if column["physical_name"] == "name"
+        )
+        age_id = next(
+            column["column_id"]
+            for column in schema
+            if column["physical_name"] == "age"
+        )
 
         operations = [
             DeduplicateOperation(operation_id="dedupe"),
-            RenameColumnOperation(operation_id="rename", column_id=name_id, new_name="customer"),
-            CastColumnOperation(operation_id="cast", column_id=age_id, target_type="float"),
+            RenameColumnOperation(
+                operation_id="rename",
+                column_id=name_id,
+                new_name="customer",
+            ),
+            CastColumnOperation(
+                operation_id="cast",
+                column_id=age_id,
+                target_type="float",
+            ),
             FilterOperation(
                 operation_id="filter",
                 column_id=name_id,
