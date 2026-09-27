@@ -1,6 +1,29 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 
+const SOURCE_PREFIX = "datasets/source/";
+
+function configuredMaximum(): number | undefined {
+  const raw = process.env.ANALYTICA_MAX_UPLOAD_BYTES;
+  if (!raw) return undefined;
+  const parsed = Number(raw);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function uploadSigningEnabled(): boolean {
+  return (
+    process.env.NODE_ENV !== "production" ||
+    process.env.ANALYTICA_UPLOAD_SIGNING_ENABLED === "true"
+  );
+}
+
 export async function POST(request: Request): Promise<Response> {
+  if (!uploadSigningEnabled()) {
+    return Response.json(
+      { error: "Upload signing is disabled until production authentication is configured." },
+      { status: 503 },
+    );
+  }
+
   const body = (await request.json()) as HandleUploadBody;
 
   try {
@@ -8,7 +31,20 @@ export async function POST(request: Request): Promise<Response> {
       body,
       request,
       onBeforeGenerateToken: async (pathname) => {
-        const lower = pathname.toLowerCase();
+        if (!pathname.startsWith(SOURCE_PREFIX)) {
+          throw new Error("Invalid dataset upload path.");
+        }
+        const filename = pathname.slice(SOURCE_PREFIX.length);
+        if (
+          !filename ||
+          filename.includes("/") ||
+          filename.includes("\\") ||
+          filename.includes("..")
+        ) {
+          throw new Error("Invalid dataset filename.");
+        }
+
+        const lower = filename.toLowerCase();
         if (!lower.endsWith(".csv") && !lower.endsWith(".parquet")) {
           throw new Error("Only CSV and Parquet datasets are supported.");
         }
@@ -20,13 +56,14 @@ export async function POST(request: Request): Promise<Response> {
             "application/vnd.apache.parquet",
             "application/octet-stream",
           ],
+          maximumSizeInBytes: configuredMaximum(),
           addRandomSuffix: true,
           allowOverwrite: false,
         };
       },
       onUploadCompleted: async () => {
-        // Dataset registration is explicit: the browser submits the returned
-        // private Blob reference to the Python API after upload completes.
+        // Registration remains explicit: the browser sends only the returned
+        // Blob pathname to FastAPI, which verifies metadata directly in storage.
       },
     });
 
