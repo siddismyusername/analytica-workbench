@@ -1,5 +1,5 @@
 import hashlib
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from typing import Annotated
 from uuid import UUID
@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from analytica_api.config import Settings, get_settings
-from analytica_api.domain.control_plane import DatasetVersionState, JobStatus
+from analytica_api.domain.control_plane import ArtifactRecord, DatasetVersionState, JobStatus
 from analytica_api.domain.datasets import DatasetSchema, DatasetSource
 from analytica_api.execution.duckdb_engine import DuckDBEngine
 from analytica_api.ingestion.models import SourceFormat
@@ -55,7 +55,7 @@ def _source_format(storage_key: str) -> SourceFormat:
     )
 
 
-def _object_ref_from_artifact(artifact) -> StorageObjectRef:
+def _object_ref_from_artifact(artifact: ArtifactRecord) -> StorageObjectRef:
     return StorageObjectRef(
         key=artifact.storage_key,
         byte_size=artifact.byte_size,
@@ -87,7 +87,7 @@ async def complete_upload(
 
     if settings.max_upload_bytes is not None and source_ref.byte_size > settings.max_upload_bytes:
         raise HTTPException(
-            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            status_code=413,
             detail="uploaded object exceeds the configured product limit",
         )
 
@@ -162,7 +162,7 @@ def preview_dataset_version(
     with TemporaryDirectory(prefix="analytica-preview-") as temp_dir:
         local_path = store.materialize(
             object_ref,
-            PurePosixPath(temp_dir) / "data.parquet",  # type: ignore[arg-type]
+            Path(temp_dir) / "data.parquet",
         )
         table = DuckDBEngine(settings).preview(
             DatasetSource(uri=str(local_path)),
