@@ -70,6 +70,7 @@ class JobRepository(Protocol):
     ) -> JobRecord: ...
     def get(self, job_id: UUID) -> JobRecord | None: ...
     def get_by_idempotency_key(self, idempotency_key: str) -> JobRecord | None: ...
+    def get_by_output_version_id(self, version_id: UUID) -> JobRecord | None: ...
     def update_status(
         self,
         job_id: UUID,
@@ -270,6 +271,11 @@ class SqlAlchemyJobRepository:
 
     def get_by_idempotency_key(self, idempotency_key: str) -> JobRecord | None:
         statement = select(JobModel).where(JobModel.idempotency_key == idempotency_key)
+        model = self.session.execute(statement).scalar_one_or_none()
+        return _job_record(model) if model else None
+
+    def get_by_output_version_id(self, version_id: UUID) -> JobRecord | None:
+        statement = select(JobModel).where(JobModel.output_version_id == version_id)
         model = self.session.execute(statement).scalar_one_or_none()
         return _job_record(model) if model else None
 
