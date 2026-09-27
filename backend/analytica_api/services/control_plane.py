@@ -11,7 +11,7 @@ from analytica_api.domain.control_plane import (
     JobRecord,
     JobStatus,
 )
-from analytica_api.ingestion.models import IngestionManifest
+from analytica_api.ingestion.models import IngestionManifest, SourceFormat
 from analytica_api.persistence.unit_of_work import UnitOfWork
 from analytica_api.storage.contracts import StorageObjectRef
 
@@ -26,11 +26,18 @@ class RegisteredDatasetVersion:
     artifact: ArtifactRecord
 
 
+@dataclass(frozen=True)
+class CreatedIngestionJob:
+    dataset: DatasetRecord
+    job: JobRecord
+    raw_artifact: ArtifactRecord
+
+
 _ALLOWED_JOB_TRANSITIONS = {
     JobStatus.QUEUED: {JobStatus.RUNNING, JobStatus.CANCELLED},
     JobStatus.RUNNING: {JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.CANCELLED},
     JobStatus.SUCCEEDED: set(),
-    JobStatus.FAILED: set(),
+    JobStatus.FAILED: {JobStatus.RUNNING, JobStatus.CANCELLED},
     JobStatus.CANCELLED: set(),
 }
 
@@ -43,11 +50,103 @@ class ControlPlaneService:
         normalized = name.strip()
         if not normalized:
             raise ControlPlaneError("dataset name cannot be empty")
-
         with self.unit_of_work_factory() as unit_of_work:
             dataset = unit_of_work.datasets.create(name=normalized)
             unit_of_work.commit()
             return dataset
+
+    def get_dataset(self, dataset_id: UUID) -> DatasetRecord:
+        with self.unit_of_work_factory() as unit_of_work:
+            dataset = unit_of_work.datasets.get(dataset_id)
+            if dataset is None:
+                raise ControlPlaneError(f"dataset does not exist: {dataset_id}")
+            return dataset
+
+    def get_version(self, version_id: UUID) -> DatasetVersionRecord:
+        with self.unit_of_work_factory() as unit_of_work:
+            version = unit_of_work.versions.get(version_id)
+            if version is None:
+                raise ControlPlaneError(f"dataset version does not exist: {version_id}")
+            return version
+
+    def get_job(self, job_id: UUID) -> JobRecord:
+        with self.unit_of_work_factory() as unit_of_work:
+            job = unit_of_work.jobs.get(job_id)
+            if job is None:
+                raise ControlPlaneError(f"job does not exist: {job_id}")
+            return job
+
+    def get_job_by_idempotency_key(self, idempotency_key: str) -> JobRecord | None:
+        with self.unit_of_work_factory() as unit_of_work:
+            return unit_of_work.jobs.get_by_idempotency_key(idempotency_key.strip())
+
+    def get_artifact_for_version_kind(self, version_id: UUID, kind: str) -> ArtifactRecord:
+        with self.unit_of_work_factory() as unit_of_work:
+            artifact = unit_of_work.artifacts.get_for_version_kind(version_id, kind)
+            if artifact is None:
+                raise ControlPlaneError(
+                    f"artifact does not exist for version {version_id}: {kind}"
+                )
+            return artifact
+
+    def get_artifact_for_job_kind(self, job_id: UUID, kind: str) -> ArtifactRecord:
+        with self.unit_of_work_factory() as unit_of_work:
+            artifact = unit_of_work.artifacts.get_for_job_kind(job_id, kind)
+            if artifact is None:
+                raise ControlPlaneError(f"artifact does not exist for job {job_id}: {kind}")
+            return artifact
+
+    def create_ingestion_job(
+        self,
+        *,
+        dataset_name: str,
+        source_format: SourceFormat,
+        source_ref: StorageObjectRef,
+        idempotency_key: str,
+    ) -> CreatedIngestionJob:
+        normalized_name = dataset_name.strip()
+        normalized_key = idempotency_key.strip()
+        if not normalized_name:
+            raise ControlPlaneError("dataset name cannot be empty")
+        if not normalized_key:
+            raise ControlPlaneError("idempotency key cannot be empty")
+
+        with self.unit_of_work_factory() as unit_of_work:
+            existing = unit_of_work.jobs.get_by_idempotency_key(normalized_key)
+            if existing is not None:
+                if existing.kind != "ingest" or existing.dataset_id is None:
+                    raise ControlPlaneError("idempotency key belongs to another operation")
+                dataset = unit_of_work.datasets.get(existing.dataset_id)
+                raw_artifact = unit_of_work.artifacts.get_for_job_kind(existing.id, "raw_upload")
+                if dataset is None or raw_artifact is None:
+                    raise ControlPlaneError("existing ingestion job is incomplete")
+                original_format = existing.operation_payload.get("source_format")
+                if (
+                    original_format != source_format
+                    or raw_artifact.storage_key != source_ref.key
+                    or raw_artifact.byte_size != source_ref.byte_size
+                ):
+                    raise ControlPlaneError(
+                        "idempotency key was already used with different upload data"
+                    )
+                return CreatedIngestionJob(dataset=dataset, job=existing, raw_artifact=raw_artifact)
+
+            dataset = unit_of_work.datasets.create(name=normalized_name)
+            job = unit_of_work.jobs.create(
+                kind="ingest",
+                idempotency_key=normalized_key,
+                dataset_id=dataset.id,
+                input_version_id=None,
+                operation_payload={"source_format": source_format},
+            )
+            raw_artifact = unit_of_work.artifacts.create(
+                dataset_version_id=None,
+                job_id=job.id,
+                kind="raw_upload",
+                object_ref=source_ref,
+            )
+            unit_of_work.commit()
+            return CreatedIngestionJob(dataset=dataset, job=job, raw_artifact=raw_artifact)
 
     def register_ingested_version(
         self,
@@ -56,6 +155,7 @@ class ControlPlaneService:
         manifest: IngestionManifest,
         object_ref: StorageObjectRef,
         parent_version_id: UUID | None = None,
+        job_id: UUID | None = None,
     ) -> RegisteredDatasetVersion:
         if manifest.byte_size != object_ref.byte_size:
             raise ControlPlaneError("artifact size does not match the ingestion manifest")
@@ -63,6 +163,24 @@ class ControlPlaneService:
         with self.unit_of_work_factory() as unit_of_work:
             if unit_of_work.datasets.get(dataset_id) is None:
                 raise ControlPlaneError(f"dataset does not exist: {dataset_id}")
+
+            if job_id is not None:
+                job = unit_of_work.jobs.get(job_id)
+                if job is None or job.dataset_id != dataset_id:
+                    raise ControlPlaneError("ingestion job must belong to the same dataset")
+                existing_artifact = unit_of_work.artifacts.get_for_job_kind(
+                    job_id, "canonical_dataset"
+                )
+                if existing_artifact is not None:
+                    if existing_artifact.dataset_version_id is None:
+                        raise ControlPlaneError("canonical artifact is missing its dataset version")
+                    existing_version = unit_of_work.versions.get(existing_artifact.dataset_version_id)
+                    if existing_version is None:
+                        raise ControlPlaneError("canonical artifact references a missing version")
+                    return RegisteredDatasetVersion(
+                        version=existing_version,
+                        artifact=existing_artifact,
+                    )
 
             if parent_version_id is not None:
                 parent = unit_of_work.versions.get(parent_version_id)
@@ -82,41 +200,12 @@ class ControlPlaneService:
             )
             artifact = unit_of_work.artifacts.create(
                 dataset_version_id=version.id,
-                job_id=None,
+                job_id=job_id,
                 kind="canonical_dataset",
                 object_ref=object_ref,
             )
             unit_of_work.commit()
             return RegisteredDatasetVersion(version=version, artifact=artifact)
-
-    def register_job_artifact(
-        self,
-        *,
-        job_id: UUID,
-        kind: str,
-        object_ref: StorageObjectRef,
-    ) -> ArtifactRecord:
-        with self.unit_of_work_factory() as unit_of_work:
-            if unit_of_work.jobs.get(job_id) is None:
-                raise ControlPlaneError(f"job does not exist: {job_id}")
-            artifact = unit_of_work.artifacts.create(
-                dataset_version_id=None,
-                job_id=job_id,
-                kind=kind,
-                object_ref=object_ref,
-            )
-            unit_of_work.commit()
-            return artifact
-
-    def get_version_artifact(
-        self, version_id: UUID, *, kind: str
-    ) -> ArtifactRecord | None:
-        with self.unit_of_work_factory() as unit_of_work:
-            return unit_of_work.artifacts.get_for_version_kind(version_id, kind)
-
-    def get_job_by_idempotency_key(self, idempotency_key: str) -> JobRecord | None:
-        with self.unit_of_work_factory() as unit_of_work:
-            return unit_of_work.jobs.get_by_idempotency_key(idempotency_key.strip())
 
     def create_job(
         self,
@@ -131,7 +220,6 @@ class ControlPlaneService:
         normalized_key = idempotency_key.strip()
         if not normalized_kind or not normalized_key:
             raise ControlPlaneError("job kind and idempotency key are required")
-
         with self.unit_of_work_factory() as unit_of_work:
             existing = unit_of_work.jobs.get_by_idempotency_key(normalized_key)
             if existing is not None:

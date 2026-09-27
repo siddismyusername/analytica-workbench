@@ -1,112 +1,83 @@
+import asyncio
 from dataclasses import dataclass
-from pathlib import Path
-from tempfile import TemporaryDirectory
+from pathlib import PurePosixPath
 from uuid import UUID
 
+from analytica_api.config import Settings
 from analytica_api.domain.control_plane import JobRecord, JobStatus
-from analytica_api.ingestion.engine import IngestionEngine
 from analytica_api.ingestion.models import SourceFormat
+from analytica_api.queue.contracts import JobQueue
 from analytica_api.services.control_plane import ControlPlaneService
-from analytica_api.storage.contracts import ArtifactStore, StorageObjectRef
-
-PARQUET_CONTENT_TYPE = "application/vnd.apache.parquet"
+from analytica_api.storage.contracts import ArtifactStore, StorageError
 
 
 @dataclass(frozen=True)
-class IngestionResult:
+class IngestionSubmission:
     job: JobRecord
     dataset_id: UUID
-    version_id: UUID
+
+
+def _validate_source_key(source_key: str, source_format: SourceFormat) -> None:
+    path = PurePosixPath(source_key)
+    if path.is_absolute() or ".." in path.parts or not path.parts or path.parts[0] != "raw":
+        raise ValueError("source_key must identify an object under the raw/ namespace")
+    expected_suffix = ".csv" if source_format == "csv" else ".parquet"
+    if path.suffix.lower() != expected_suffix:
+        raise ValueError(f"source key extension must be {expected_suffix}")
 
 
 class DatasetIngestionService:
+    """Validate a direct upload, persist a durable ingestion job, and dispatch it."""
+
     def __init__(
         self,
         *,
+        settings: Settings,
         control_plane: ControlPlaneService,
         artifact_store: ArtifactStore,
-        ingestion_engine: IngestionEngine,
+        job_queue: JobQueue,
     ):
+        self.settings = settings
         self.control_plane = control_plane
         self.artifact_store = artifact_store
-        self.ingestion_engine = ingestion_engine
+        self.job_queue = job_queue
 
-    def ingest_uploaded_dataset(
+    async def submit_uploaded_dataset(
         self,
         *,
         name: str,
-        source_ref: StorageObjectRef,
+        source_key: str,
         source_format: SourceFormat,
         idempotency_key: str,
-    ) -> IngestionResult:
-        existing = self.control_plane.get_job_by_idempotency_key(idempotency_key)
-        if existing is not None:
-            if existing.output_version_id is None or existing.dataset_id is None:
-                raise RuntimeError(
-                    f"idempotent ingestion job {existing.id} has not completed successfully"
-                )
-            return IngestionResult(
-                job=existing,
-                dataset_id=existing.dataset_id,
-                version_id=existing.output_version_id,
-            )
-
-        dataset = self.control_plane.create_dataset(name)
-        job = self.control_plane.create_job(
-            kind="ingest_dataset",
-            idempotency_key=idempotency_key,
-            dataset_id=dataset.id,
-            operation_payload={
-                "source_key": source_ref.key,
-                "source_format": source_format,
-                "source_byte_size": source_ref.byte_size,
-            },
-        )
-        self.control_plane.register_job_artifact(
-            job_id=job.id,
-            kind="source_dataset",
-            object_ref=source_ref,
-        )
-        self.control_plane.transition_job(job.id, JobStatus.RUNNING)
-
+    ) -> IngestionSubmission:
+        _validate_source_key(source_key, source_format)
         try:
-            with TemporaryDirectory(prefix="analytica-ingest-") as directory:
-                workdir = Path(directory)
-                suffix = ".csv" if source_format == "csv" else ".parquet"
-                source_path = self.artifact_store.materialize(
-                    source_ref, workdir / f"source{suffix}"
-                )
-                canonical_path = workdir / "canonical.parquet"
-                manifest = self.ingestion_engine.ingest_local(
-                    source_path,
-                    canonical_path,
-                    source_format=source_format,
-                )
-                canonical_ref = self.artifact_store.put_file(
-                    canonical_path,
-                    key=f"datasets/{dataset.id}/ingestions/{job.id}/canonical.parquet",
-                    content_type=PARQUET_CONTENT_TYPE,
-                )
-                registered = self.control_plane.register_ingested_version(
-                    dataset_id=dataset.id,
-                    manifest=manifest,
-                    object_ref=canonical_ref,
+            source_ref = await asyncio.to_thread(self.artifact_store.stat, source_key)
+        except StorageError:
+            raise
+
+        if self.settings.max_upload_bytes is not None:
+            if source_ref.byte_size > self.settings.max_upload_bytes:
+                raise ValueError(
+                    f"uploaded object exceeds configured limit of {self.settings.max_upload_bytes} bytes"
                 )
 
-            completed = self.control_plane.transition_job(
-                job.id,
-                JobStatus.SUCCEEDED,
-                output_version_id=registered.version.id,
+        created = await asyncio.to_thread(
+            self.control_plane.create_ingestion_job,
+            dataset_name=name,
+            source_format=source_format,
+            source_ref=source_ref,
+            idempotency_key=idempotency_key,
+        )
+
+        if created.job.status in {JobStatus.QUEUED, JobStatus.FAILED}:
+            dispatch_key = (
+                f"ingest:{created.job.id}:attempt:{created.job.attempt_count + 1}"
             )
-            return IngestionResult(
-                job=completed,
-                dataset_id=dataset.id,
-                version_id=registered.version.id,
+            await self.job_queue.publish_ingestion(
+                created.job.id,
+                idempotency_key=dispatch_key,
             )
-        except Exception as exc:
-            self.control_plane.transition_job(
-                job.id,
-                JobStatus.FAILED,
-                error_detail={"type": type(exc).__name__, "message": str(exc)},
-            )
-            raise
+
+        latest = await asyncio.to_thread(self.control_plane.get_job, created.job.id)
+        return IngestionSubmission(job=latest, dataset_id=created.dataset.id)
