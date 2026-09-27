@@ -89,6 +89,35 @@ class ControlPlaneService:
             unit_of_work.commit()
             return RegisteredDatasetVersion(version=version, artifact=artifact)
 
+    def register_job_artifact(
+        self,
+        *,
+        job_id: UUID,
+        kind: str,
+        object_ref: StorageObjectRef,
+    ) -> ArtifactRecord:
+        with self.unit_of_work_factory() as unit_of_work:
+            if unit_of_work.jobs.get(job_id) is None:
+                raise ControlPlaneError(f"job does not exist: {job_id}")
+            artifact = unit_of_work.artifacts.create(
+                dataset_version_id=None,
+                job_id=job_id,
+                kind=kind,
+                object_ref=object_ref,
+            )
+            unit_of_work.commit()
+            return artifact
+
+    def get_version_artifact(
+        self, version_id: UUID, *, kind: str
+    ) -> ArtifactRecord | None:
+        with self.unit_of_work_factory() as unit_of_work:
+            return unit_of_work.artifacts.get_for_version_kind(version_id, kind)
+
+    def get_job_by_idempotency_key(self, idempotency_key: str) -> JobRecord | None:
+        with self.unit_of_work_factory() as unit_of_work:
+            return unit_of_work.jobs.get_by_idempotency_key(idempotency_key.strip())
+
     def create_job(
         self,
         *,
