@@ -16,3 +16,12 @@ class JobQueue(Protocol):
         *,
         idempotency_key: str,
     ) -> str | None: ...
+
+    async def publish_model(
+        self,
+        job_id: UUID,
+        *,
+        idempotency_key: str,
+    ) -> str | None: ...
+
+    async def publish_export(self, job_id: UUID, *, idempotency_key: str) -> str | None: ...

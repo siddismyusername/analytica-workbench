@@ -59,6 +59,20 @@ class ArtifactRecord(BaseModel):
     created_at: datetime
 
 
+class SavedResultRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    id: UUID
+    dataset_version_id: UUID
+    source_job_id: UUID | None
+    kind: str
+    title: str
+    fingerprint: str
+    configuration: dict[str, Any]
+    payload: dict[str, Any]
+    created_at: datetime
+
+
 class JobRecord(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 

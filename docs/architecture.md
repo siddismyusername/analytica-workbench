@@ -26,7 +26,7 @@ The user workflow is:
 
 `Data → Prepare → Explore → Analyze → Model → Results`
 
-At the current baseline, Data, Prepare, Explore and Analyze are implemented. Model and Results are future stages that must reuse the same version/artifact/job model rather than introducing a separate data lifecycle.
+Data, Prepare, Explore, Analyze, the first supervised Model MVP, and Results are implemented locally. Results reuses the same version/artifact/job model and does not introduce a separate data lifecycle.
 
 ---
 
@@ -883,6 +883,8 @@ FastAPI local server
 
 The local stack intentionally reuses production service/worker contracts so behavior differences are concentrated in provider adapters.
 
+With `ANALYTICA_LOCAL_UPLOADS=true` in the frontend's development configuration, the browser sends the file to a development-only FastAPI upload endpoint. It writes the object into the backend's `LocalArtifactStore`, so the normal ingestion service can resolve the same `raw/<upload-id>/<filename>` key. This local convenience path is unavailable in production; production dataset bytes continue to upload directly to private Blob storage.
+
 ---
 
 # 20. Production target topology
@@ -1031,7 +1033,7 @@ A PR should not be merged after feature work if its applicable CI checks are fai
 
 ---
 
-# 24. Planned Model architecture
+# 24. Model architecture — supervised MVP
 
 Model must extend the current system rather than bypass it.
 
@@ -1070,13 +1072,13 @@ Key rules:
 - heavy runs are deferred;
 - result metadata is stable if the worker later moves outside Vercel.
 
-A future schema migration will be required for persistent model/result resources unless they are initially represented as specialized job/artifact records.
+The supervised MVP represents model runs as `model_train` jobs, with JSON evaluation and fitted pipeline artifacts attached to each job. A future schema migration may add dedicated model resources for richer lifecycle controls.
 
 ---
 
-# 25. Planned Results architecture
+# 25. Results architecture
 
-Results should introduce a durable result resource tied to:
+Results uses a durable result resource tied to:
 
 - exact dataset version;
 - originating analysis/model job or request configuration;
@@ -1084,9 +1086,9 @@ Results should introduce a durable result resource tied to:
 - summary metadata;
 - zero or more artifacts.
 
-Report generation should operate on saved result IDs, not re-run analyses implicitly.
+Report generation operates on saved result IDs and does not re-run analyses implicitly.
 
-Large report/export files should be written to object storage and returned by reference.
+Report and export files are written to object storage and returned by artifact reference. The current download route materializes the artifact through the API; direct storage download URLs can be added with the production authorization boundary.
 
 ---
 
@@ -1233,15 +1235,13 @@ A new job type must:
 The following gaps are intentional/currently unresolved and should not be hidden in implementation claims:
 
 1. No production authentication/resource authorization model yet.
-2. No persistent saved analysis-result resource yet.
-3. No Model execution/resource layer yet.
-4. No Results/report/export layer yet.
-5. No user-driven deletion/retention lifecycle yet.
-6. No production observability/alerting standard yet.
-7. No benchmark-derived dataset size tiers beyond endpoint-specific bounds.
-8. No external compute provider implemented yet; only the abstraction/upgrade path exists.
-9. No dedicated cache layer for repeatedly materialized canonical artifacts.
-10. The frontend currently centralizes substantial workflow state in `DataWorkspace`; this may require decomposition as Model/Results are added.
+2. No unsupervised Model execution/resource layer yet.
+3. No user-driven deletion/retention lifecycle yet.
+4. No production observability/alerting standard yet.
+5. No benchmark-derived dataset size tiers beyond endpoint-specific bounds.
+6. No external compute provider implemented yet; only the abstraction/upgrade path exists.
+7. No dedicated cache layer for repeatedly materialized canonical artifacts.
+8. The frontend currently centralizes substantial workflow state in `DataWorkspace`; this may require decomposition as the product expands.
 
 ---
 

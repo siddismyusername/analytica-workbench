@@ -88,9 +88,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Upload exceeds configured size limit" }, { status: 413 });
   }
 
-  const pathname = `raw/${randomUUID()}/${filename}`;
+  const uploadId = randomUUID();
+  const pathname = `raw/${uploadId}/${filename}`;
   const validUntil = Date.now() + FIFTEEN_MINUTES_MS;
   const contentType = classification.contentType;
+
+  if (process.env.NODE_ENV !== "production" && process.env.ANALYTICA_LOCAL_UPLOADS === "true") {
+    const apiUrl = process.env.NEXT_PUBLIC_ANALYTICA_API_URL?.trim();
+    if (!apiUrl) {
+      return NextResponse.json(
+        { error: "NEXT_PUBLIC_ANALYTICA_API_URL is required for local uploads" },
+        { status: 500 },
+      );
+    }
+    const presignedUrl = new URL(
+      `/api/v1/datasets/uploads/local/${uploadId}/${encodeURIComponent(filename)}`,
+      apiUrl,
+    ).toString();
+    return NextResponse.json({ pathname, presignedUrl, expiresAt: null, contentType });
+  }
 
   const signedToken = await issueSignedToken({
     pathname,

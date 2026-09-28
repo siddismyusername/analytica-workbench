@@ -13,7 +13,7 @@ async def capabilities() -> dict[str, object]:
     return {
         "execution": {
             "interactive": True,
-            "deferred_jobs": "planned",
+            "deferred_jobs": ["ingestion", "transform", "model_train"],
             "large_uploads": "direct-to-object-storage",
             "canonical_dataset_format": "parquet",
         },

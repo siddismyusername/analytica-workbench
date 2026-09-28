@@ -23,6 +23,7 @@ type ExplorePanel = "column" | "correlation" | "crosstab" | "visualize";
 
 const NUMERIC_TYPES = new Set(["integer", "float"]);
 const TEMPORAL_TYPES = new Set(["date", "datetime"]);
+const CATEGORICAL_TYPES = new Set(["boolean", "string", "categorical"]);
 const CHARTS: Array<{
   type: ExploreChartType;
   label: string;
@@ -74,6 +75,12 @@ export function ExploreWorkspace({ profile }: { profile: DatasetProfile }) {
   const [secondaryColumnId, setSecondaryColumnId] = useState(
     profile.columns[1]?.column_id ?? profile.columns[0]?.column_id ?? "",
   );
+  const [crosstabRowId, setCrosstabRowId] = useState(
+    profile.columns.find((column) => CATEGORICAL_TYPES.has(column.data_type))?.column_id ?? "",
+  );
+  const [crosstabColumnId, setCrosstabColumnId] = useState(
+    profile.columns.filter((column) => CATEGORICAL_TYPES.has(column.data_type))[1]?.column_id ?? "",
+  );
   const [descriptives, setDescriptives] = useState<DescriptiveResult | null>(null);
   const [frequencies, setFrequencies] = useState<FrequencyResult | null>(null);
   const [correlations, setCorrelations] = useState<CorrelationResult | null>(null);
@@ -99,6 +106,10 @@ export function ExploreWorkspace({ profile }: { profile: DatasetProfile }) {
   );
   const numericColumns = useMemo(
     () => profile.columns.filter((column) => NUMERIC_TYPES.has(column.data_type)),
+    [profile.columns],
+  );
+  const categoricalColumns = useMemo(
+    () => profile.columns.filter((column) => CATEGORICAL_TYPES.has(column.data_type)),
     [profile.columns],
   );
   const activeColumnId = selectedColumn?.column_id ?? "";
@@ -143,20 +154,21 @@ export function ExploreWorkspace({ profile }: { profile: DatasetProfile }) {
   }
 
   async function loadCrosstab() {
-    if (!selectedColumn || !secondaryColumn) return;
-    if (selectedColumn.column_id === secondaryColumn.column_id) {
+    if (!crosstabRowId || !crosstabColumnId) return;
+    if (crosstabRowId === crosstabColumnId) {
       setError("Choose two different columns for a crosstab.");
       return;
     }
     setPanel("crosstab");
     setBusy(true);
     setError(null);
+    setCrosstab(null);
     try {
       setCrosstab(
         await getCrosstab(
           profile.version_id,
-          selectedColumn.column_id,
-          secondaryColumn.column_id,
+          crosstabRowId,
+          crosstabColumnId,
           12,
         ),
       );
@@ -267,6 +279,7 @@ export function ExploreWorkspace({ profile }: { profile: DatasetProfile }) {
             <button
               className={panel === "crosstab" ? styles.modeActive : ""}
               type="button"
+              disabled={categoricalColumns.length < 2}
               onClick={loadCrosstab}
             >
               Crosstab
@@ -413,14 +426,14 @@ export function ExploreWorkspace({ profile }: { profile: DatasetProfile }) {
             <div className={styles.selectorRow}>
               <label>
                 <span>Rows</span>
-                <select value={selectedColumn.column_id} onChange={(event) => setSelectedColumnId(event.target.value)}>
-                  {profile.columns.map((column) => <option value={column.column_id} key={column.column_id}>{column.display_name}</option>)}
+                <select value={crosstabRowId} onChange={(event) => { setCrosstabRowId(event.target.value); setCrosstab(null); }}>
+                  {categoricalColumns.map((column) => <option value={column.column_id} key={column.column_id}>{column.display_name}</option>)}
                 </select>
               </label>
               <label>
                 <span>Columns</span>
-                <select value={secondaryColumn?.column_id ?? ""} onChange={(event) => setSecondaryColumnId(event.target.value)}>
-                  {profile.columns.map((column) => <option value={column.column_id} key={column.column_id}>{column.display_name}</option>)}
+                <select value={crosstabColumnId} onChange={(event) => { setCrosstabColumnId(event.target.value); setCrosstab(null); }}>
+                  {categoricalColumns.map((column) => <option value={column.column_id} key={column.column_id}>{column.display_name}</option>)}
                 </select>
               </label>
             </div>
@@ -445,6 +458,11 @@ export function ExploreWorkspace({ profile }: { profile: DatasetProfile }) {
                     </tr>
                   </tbody>
                 </table>
+                <p className="dataset-meta">
+                  {crosstab.row_truncated || crosstab.column_truncated
+                    ? "Showing the most frequent categories. Totals cover only the displayed intersections and exclude missing values."
+                    : "Totals exclude rows with missing values in either column."}
+                </p>
               </div>
             ) : null}
           </section>

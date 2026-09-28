@@ -18,7 +18,7 @@ def test_initial_control_plane_migration_round_trips_on_sqlite(tmp_path: Path) -
     engine = create_engine(database_url)
     try:
         tables = set(inspect(engine).get_table_names())
-        assert {"datasets", "dataset_versions", "jobs", "artifacts"} <= tables
+        assert {"datasets", "dataset_versions", "jobs", "artifacts", "saved_results"} <= tables
     finally:
         engine.dispose()
 
@@ -30,5 +30,6 @@ def test_initial_control_plane_migration_round_trips_on_sqlite(tmp_path: Path) -
         assert "dataset_versions" not in tables
         assert "jobs" not in tables
         assert "artifacts" not in tables
+        assert "saved_results" not in tables
     finally:
         engine.dispose()

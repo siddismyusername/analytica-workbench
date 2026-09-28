@@ -1,3 +1,5 @@
+import hashlib
+import json
 from typing import Any
 from uuid import UUID
 
@@ -5,7 +7,7 @@ import duckdb
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 
-from analytica_api.runtime import get_explore_service
+from analytica_api.runtime import get_control_plane, get_explore_service
 from analytica_api.services.control_plane import ControlPlaneError
 from analytica_api.services.explore import ExploreValidationError
 
@@ -83,6 +85,8 @@ class CrosstabResponse(BaseModel):
     row_totals: list[int]
     column_totals: list[int]
     total: int
+    row_truncated: bool
+    column_truncated: bool
 
 
 class VisualizationRequest(BaseModel):
@@ -207,6 +211,8 @@ def crosstab(version_id: UUID, payload: CrosstabRequest) -> CrosstabResponse:
         row_totals=list(result.row_totals),
         column_totals=list(result.column_totals),
         total=result.total,
+        row_truncated=result.row_truncated,
+        column_truncated=result.column_truncated,
     )
 
 
@@ -214,9 +220,7 @@ def crosstab(version_id: UUID, payload: CrosstabRequest) -> CrosstabResponse:
     "/datasets/versions/{version_id}/explore/visualizations",
     response_model=VisualizationResponse,
 )
-def visualization(
-    version_id: UUID, payload: VisualizationRequest
-) -> VisualizationResponse:
+def visualization(version_id: UUID, payload: VisualizationRequest) -> VisualizationResponse:
     try:
         result = get_explore_service().visualization(
             version_id,
@@ -230,7 +234,7 @@ def visualization(
         raise _handle_not_found(exc) from exc
     except (ExploreValidationError, duckdb.Error) as exc:
         raise _handle_invalid(exc) from exc
-    return VisualizationResponse(
+    response = VisualizationResponse(
         version_id=result.version_id,
         chart_type=result.chart_type,
         title=result.title,
@@ -239,3 +243,16 @@ def visualization(
         data=list(result.data),
         metadata=result.metadata,
     )
+    configuration = payload.model_dump(mode="json")
+    fingerprint = hashlib.sha256(
+        json.dumps(["visualization", str(version_id), configuration], sort_keys=True).encode()
+    ).hexdigest()
+    get_control_plane().save_result(
+        version_id=version_id,
+        kind="chart",
+        title=result.title,
+        fingerprint=fingerprint,
+        configuration=configuration,
+        payload=response.model_dump(mode="json"),
+    )
+    return response

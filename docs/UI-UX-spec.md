@@ -3,7 +3,7 @@
 **Document type:** Product interface and interaction specification  
 **Scope:** Browser application in `frontend/`  
 **Status:** Living source-of-truth  
-**Baseline:** Current Data, Prepare, Explore and Analyze implementation; Model and Results requirements included as forward-compatible guidance  
+**Baseline:** Current Data, Prepare, Explore, Analyze, supervised Model, and Results implementation
 **Last reviewed:** 2026-09-28
 
 ---
@@ -45,17 +45,16 @@ Purpose: understand individual variables and relationships without changing the 
 ### Analyze
 Purpose: answer inferential statistical questions through guided test selection and evidence-rich results.
 
-### Model — planned
+### Model
 Purpose: configure targets/features, preprocessing, training, validation, comparison and model diagnostics.
 
-### Results — planned
+### Results
 Purpose: gather saved analytical/model outputs, compose reports and export reproducible artifacts.
 
 ## 2.2 Availability rules
 
 - `Data` is always available.
-- `Prepare`, `Explore` and `Analyze` become available after a ready dataset version exists.
-- `Model` and `Results` remain disabled until implemented.
+- `Prepare`, `Explore`, `Analyze`, `Model`, and `Results` become available after a ready dataset version exists.
 - Disabled future stages must look intentionally unavailable, not broken.
 - Changing the selected dataset version changes the source of truth for Explore and Analyze.
 - Version-sensitive workspaces must reset stale state when the selected version changes.
@@ -513,6 +512,8 @@ Crosstab UI shall:
 - make category truncation/bounds clear;
 - avoid presenting omitted/null categories as zero-valued real categories.
 
+When category limits exclude values, the displayed totals cover only the shown intersections; this must be stated beside the table. Changing either categorical variable clears the prior table until recalculation completes.
+
 ## 9.7 Visualization mode
 
 Current supported chart families:
@@ -639,7 +640,7 @@ If the current inference request exceeds the interactive envelope, the UI shall 
 
 ---
 
-# 11. Model workspace — planned interaction specification
+# 11. Model workspace — supervised MVP and planned extensions
 
 The Model stage should reuse the product's progressive-disclosure pattern.
 
@@ -654,7 +655,9 @@ Recommended flow:
 7. Submit training.
 8. Review comparison metrics.
 9. Inspect best-model diagnostics/explainability.
-10. Save selected model result to Results.
+10. Completed model evaluations are saved to Results automatically.
+
+The current workspace supports regression and classification, target and predictor selection, a test split, seed, training-only validation (holdout or optional three-fold cross-validation), baseline and candidate comparison, confusion matrix for classification, and feature coefficients or importances for the selected best candidate. Runs and fitted pipelines are durable job artifacts. Unsupervised modeling remains planned.
 
 The default interface should not expose every estimator hyperparameter. A compact basic configuration should exist first, with an advanced disclosure for expert settings.
 
@@ -670,7 +673,7 @@ Model progress should use the same durable-job mental model already established 
 
 ---
 
-# 12. Results workspace — planned interaction specification
+# 12. Results workspace
 
 Results shall behave as a curated analytical record, not as a generic file browser.
 
@@ -870,7 +873,7 @@ The UI may use technical terminology when the terminology is the object the user
 3. Explore always analyzes the selected version.
 4. Analyze always analyzes the selected version.
 5. Analyze state should remount/reset on `version_id` change so a result cannot visually survive a version switch.
-6. Planned Model and Results resources must visibly record their source version.
+6. Model runs and Results resources visibly record their source version.
 
 ---
 

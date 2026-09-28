@@ -20,6 +20,7 @@ from analytica_api.storage.contracts import ArtifactStore, StorageObjectRef
 
 _NUMERIC_TYPES = {"integer", "float"}
 _TEMPORAL_TYPES = {"date", "datetime"}
+_CATEGORICAL_TYPES = {"boolean", "string", "categorical"}
 
 
 @dataclass(frozen=True)
@@ -79,6 +80,8 @@ class CrosstabResult:
     row_totals: tuple[int, ...]
     column_totals: tuple[int, ...]
     total: int
+    row_truncated: bool
+    column_truncated: bool
 
 
 @dataclass(frozen=True)
@@ -365,28 +368,35 @@ class DatasetExploreService:
         with self._connection(version_id) as (version, schema, connection, path):
             row_column = self._column(schema, row_column_id)
             column_column = self._column(schema, column_column_id)
+            if (
+                row_column.data_type not in _CATEGORICAL_TYPES
+                or column_column.data_type not in _CATEGORICAL_TYPES
+            ):
+                raise ExploreValidationError("crosstab requires categorical columns")
             row_identifier = _quote(row_column.physical_name)
             column_identifier = _quote(column_column.physical_name)
-            row_values = [
+            row_results = [
                 item[0]
                 for item in connection.execute(
                     f"SELECT {row_identifier}, COUNT(*) AS n "
                     "FROM read_parquet(?) "
                     f"WHERE {row_identifier} IS NOT NULL "
                     f"GROUP BY {row_identifier} ORDER BY n DESC LIMIT ?",
-                    [str(path), limit],
+                    [str(path), limit + 1],
                 ).fetchall()
             ]
-            column_values = [
+            column_results = [
                 item[0]
                 for item in connection.execute(
                     f"SELECT {column_identifier}, COUNT(*) AS n "
                     "FROM read_parquet(?) "
                     f"WHERE {column_identifier} IS NOT NULL "
                     f"GROUP BY {column_identifier} ORDER BY n DESC LIMIT ?",
-                    [str(path), limit],
+                    [str(path), limit + 1],
                 ).fetchall()
             ]
+            row_values = row_results[:limit]
+            column_values = column_results[:limit]
             if not row_values or not column_values:
                 raise ExploreValidationError(
                     "crosstab requires observed values in both columns"
@@ -427,6 +437,8 @@ class DatasetExploreService:
             row_totals=row_totals,
             column_totals=column_totals,
             total=sum(row_totals),
+            row_truncated=len(row_results) > limit,
+            column_truncated=len(column_results) > limit,
         )
 
     def visualization(

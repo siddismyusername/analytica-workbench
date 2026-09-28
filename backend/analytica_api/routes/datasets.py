@@ -1,13 +1,18 @@
+import re
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 from uuid import UUID
 
 import duckdb
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
+from analytica_api.config import get_settings
 from analytica_api.execution.duckdb_engine import PipelineCompilationError
 from analytica_api.operations.models import Operation
 from analytica_api.runtime import (
+    get_artifact_store,
     get_control_plane,
     get_ingestion_service,
     get_preview_service,
@@ -16,6 +21,7 @@ from analytica_api.runtime import (
 )
 from analytica_api.services.control_plane import ControlPlaneError
 from analytica_api.storage.contracts import StorageError
+from analytica_api.storage.local import LocalArtifactStore
 
 router = APIRouter(tags=["datasets"])
 
@@ -131,6 +137,48 @@ def _transform_response(job_id: UUID) -> TransformResponse:
         status=job.status.value,
         error_detail=job.error_detail,
     )
+
+
+@router.put("/datasets/uploads/local/{upload_id}/{filename}", status_code=201)
+async def upload_local_dataset(
+    upload_id: UUID, filename: str, request: Request
+) -> dict[str, str | int]:
+    """Development-only upload into the same local store used by ingestion."""
+
+    settings = get_settings()
+    if settings.environment != "development" or settings.artifact_store_backend != "local":
+        raise HTTPException(status_code=404, detail="local uploads are unavailable")
+    store = get_artifact_store()
+    if not isinstance(store, LocalArtifactStore):
+        raise HTTPException(status_code=404, detail="local uploads are unavailable")
+    if len(filename) > 160 or re.fullmatch(r"[A-Za-z0-9._-]+", filename) is None:
+        raise HTTPException(status_code=422, detail="invalid upload filename")
+    content_type = {
+        ".csv": "text/csv",
+        ".parquet": "application/vnd.apache.parquet",
+    }.get(Path(filename).suffix.lower())
+    if content_type is None or request.headers.get("content-type") != content_type:
+        raise HTTPException(status_code=415, detail="unsupported upload content type")
+
+    key = f"raw/{upload_id}/{filename}"
+    with TemporaryDirectory(prefix="analytica-local-upload-") as directory:
+        source = Path(directory) / "upload"
+        byte_size = 0
+        with source.open("xb") as handle:
+            async for chunk in request.stream():
+                byte_size += len(chunk)
+                if settings.max_upload_bytes is not None and byte_size > settings.max_upload_bytes:
+                    raise HTTPException(
+                        status_code=413, detail="upload exceeds configured size limit"
+                    )
+                handle.write(chunk)
+        if byte_size == 0:
+            raise HTTPException(status_code=422, detail="upload is empty")
+        try:
+            store.put_file(source, key=key, content_type=content_type)
+        except StorageError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"source_key": key, "byte_size": byte_size}
 
 
 @router.post(

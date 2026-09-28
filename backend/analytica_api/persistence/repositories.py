@@ -12,12 +12,14 @@ from analytica_api.domain.control_plane import (
     DatasetVersionState,
     JobRecord,
     JobStatus,
+    SavedResultRecord,
 )
 from analytica_api.persistence.models import (
     ArtifactModel,
     DatasetModel,
     DatasetVersionModel,
     JobModel,
+    SavedResultModel,
     utc_now,
 )
 from analytica_api.storage.contracts import StorageObjectRef
@@ -56,6 +58,26 @@ class ArtifactRepository(Protocol):
     ) -> ArtifactRecord: ...
     def get_for_version_kind(self, version_id: UUID, kind: str) -> ArtifactRecord | None: ...
     def get_for_job_kind(self, job_id: UUID, kind: str) -> ArtifactRecord | None: ...
+    def get(self, artifact_id: UUID) -> ArtifactRecord | None: ...
+
+
+class SavedResultRepository(Protocol):
+    def create(
+        self,
+        *,
+        dataset_version_id: UUID,
+        source_job_id: UUID | None,
+        kind: str,
+        title: str,
+        fingerprint: str,
+        configuration: dict[str, Any],
+        payload: dict[str, Any],
+    ) -> SavedResultRecord: ...
+    def get(self, result_id: UUID) -> SavedResultRecord | None: ...
+    def get_by_fingerprint(
+        self, version_id: UUID, fingerprint: str
+    ) -> SavedResultRecord | None: ...
+    def list_for_version(self, version_id: UUID) -> tuple[SavedResultRecord, ...]: ...
 
 
 class JobRepository(Protocol):
@@ -71,6 +93,7 @@ class JobRepository(Protocol):
     def get(self, job_id: UUID) -> JobRecord | None: ...
     def get_by_idempotency_key(self, idempotency_key: str) -> JobRecord | None: ...
     def get_by_output_version_id(self, version_id: UUID) -> JobRecord | None: ...
+    def list_for_input_version(self, version_id: UUID, kind: str) -> tuple[JobRecord, ...]: ...
     def update_status(
         self,
         job_id: UUID,
@@ -116,6 +139,20 @@ def _artifact_record(model: ArtifactModel) -> ArtifactRecord:
         content_type=model.content_type,
         byte_size=model.byte_size,
         checksum_sha256=model.checksum_sha256,
+        created_at=model.created_at,
+    )
+
+
+def _saved_result_record(model: SavedResultModel) -> SavedResultRecord:
+    return SavedResultRecord(
+        id=model.id,
+        dataset_version_id=model.dataset_version_id,
+        source_job_id=model.source_job_id,
+        kind=model.kind,
+        title=model.title,
+        fingerprint=model.fingerprint,
+        configuration=model.configuration,
+        payload=model.payload,
         created_at=model.created_at,
     )
 
@@ -239,6 +276,60 @@ class SqlAlchemyArtifactRepository:
         model = self.session.execute(statement).scalar_one_or_none()
         return _artifact_record(model) if model else None
 
+    def get(self, artifact_id: UUID) -> ArtifactRecord | None:
+        model = self.session.get(ArtifactModel, artifact_id)
+        return _artifact_record(model) if model else None
+
+
+class SqlAlchemySavedResultRepository:
+    def __init__(self, session: Session):
+        self.session = session
+
+    def create(
+        self,
+        *,
+        dataset_version_id: UUID,
+        source_job_id: UUID | None,
+        kind: str,
+        title: str,
+        fingerprint: str,
+        configuration: dict[str, Any],
+        payload: dict[str, Any],
+    ) -> SavedResultRecord:
+        model = SavedResultModel(
+            dataset_version_id=dataset_version_id,
+            source_job_id=source_job_id,
+            kind=kind,
+            title=title,
+            fingerprint=fingerprint,
+            configuration=configuration,
+            payload=payload,
+        )
+        self.session.add(model)
+        self.session.flush()
+        return _saved_result_record(model)
+
+    def get(self, result_id: UUID) -> SavedResultRecord | None:
+        model = self.session.get(SavedResultModel, result_id)
+        return _saved_result_record(model) if model else None
+
+    def get_by_fingerprint(self, version_id: UUID, fingerprint: str) -> SavedResultRecord | None:
+        model = self.session.execute(
+            select(SavedResultModel).where(
+                SavedResultModel.dataset_version_id == version_id,
+                SavedResultModel.fingerprint == fingerprint,
+            )
+        ).scalar_one_or_none()
+        return _saved_result_record(model) if model else None
+
+    def list_for_version(self, version_id: UUID) -> tuple[SavedResultRecord, ...]:
+        models = self.session.execute(
+            select(SavedResultModel)
+            .where(SavedResultModel.dataset_version_id == version_id)
+            .order_by(SavedResultModel.created_at.desc(), SavedResultModel.id.desc())
+        ).scalars()
+        return tuple(_saved_result_record(model) for model in models)
+
 
 class SqlAlchemyJobRepository:
     def __init__(self, session: Session):
@@ -278,6 +369,14 @@ class SqlAlchemyJobRepository:
         statement = select(JobModel).where(JobModel.output_version_id == version_id)
         model = self.session.execute(statement).scalar_one_or_none()
         return _job_record(model) if model else None
+
+    def list_for_input_version(self, version_id: UUID, kind: str) -> tuple[JobRecord, ...]:
+        statement = (
+            select(JobModel)
+            .where(JobModel.input_version_id == version_id, JobModel.kind == kind)
+            .order_by(JobModel.created_at.desc(), JobModel.id.desc())
+        )
+        return tuple(_job_record(model) for model in self.session.execute(statement).scalars())
 
     def update_status(
         self,

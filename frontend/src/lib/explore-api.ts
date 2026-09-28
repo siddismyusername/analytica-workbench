@@ -59,6 +59,8 @@ export type CrosstabResult = {
   row_totals: number[];
   column_totals: number[];
   total: number;
+  row_truncated: boolean;
+  column_truncated: boolean;
 };
 
 export type ExploreChartType =

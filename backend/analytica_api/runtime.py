@@ -11,8 +11,10 @@ from analytica_api.services.control_plane import ControlPlaneService
 from analytica_api.services.explore import DatasetExploreService
 from analytica_api.services.ingestion import DatasetIngestionService
 from analytica_api.services.ingestion_worker import IngestionWorker
+from analytica_api.services.modeling import DatasetModelService, ModelWorker
 from analytica_api.services.preview import DatasetPreviewService
 from analytica_api.services.profile import DatasetProfileService
+from analytica_api.services.results import ExportWorker, ResultsService
 from analytica_api.services.transform import DatasetTransformService
 from analytica_api.services.transform_worker import TransformWorker
 from analytica_api.storage.contracts import ArtifactStore
@@ -57,6 +59,16 @@ def get_transform_worker() -> TransformWorker:
 
 
 @lru_cache(maxsize=1)
+def get_model_worker() -> ModelWorker:
+    return ModelWorker(control_plane=get_control_plane(), store=get_artifact_store())
+
+
+@lru_cache(maxsize=1)
+def get_export_worker() -> ExportWorker:
+    return ExportWorker(control_plane=get_control_plane(), store=get_artifact_store())
+
+
+@lru_cache(maxsize=1)
 def get_job_queue() -> JobQueue:
     settings: Settings = get_settings()
     if settings.queue_provider == "vercel":
@@ -64,6 +76,8 @@ def get_job_queue() -> JobQueue:
     return InlineJobQueue(
         get_ingestion_worker().run,
         get_transform_worker().run,
+        get_model_worker().run,
+        get_export_worker().run,
     )
 
 
@@ -83,6 +97,22 @@ def get_transform_service() -> DatasetTransformService:
         control_plane=get_control_plane(),
         artifact_store=get_artifact_store(),
         job_queue=get_job_queue(),
+    )
+
+
+@lru_cache(maxsize=1)
+def get_model_service() -> DatasetModelService:
+    return DatasetModelService(
+        control_plane=get_control_plane(),
+        store=get_artifact_store(),
+        queue=get_job_queue(),
+    )
+
+
+@lru_cache(maxsize=1)
+def get_results_service() -> ResultsService:
+    return ResultsService(
+        control_plane=get_control_plane(), store=get_artifact_store(), queue=get_job_queue()
     )
 
 

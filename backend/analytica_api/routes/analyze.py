@@ -1,3 +1,5 @@
+import hashlib
+import json
 from typing import Any, Literal
 from uuid import UUID
 
@@ -5,7 +7,7 @@ import duckdb
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from analytica_api.runtime import get_analyze_service
+from analytica_api.runtime import get_analyze_service, get_control_plane
 from analytica_api.services.analyze import AnalyzeValidationError
 from analytica_api.services.control_plane import ControlPlaneError
 
@@ -120,6 +122,7 @@ class VisualizationResponse(BaseModel):
 
 
 class AnalysisResponse(BaseModel):
+    saved_result_id: UUID | None = None
     version_id: UUID
     test_id: TestId
     test_name: str
@@ -209,7 +212,7 @@ def run_analysis(
     except (AnalyzeValidationError, duckdb.Error, ValueError) as exc:
         raise _invalid(exc) from exc
 
-    return AnalysisResponse(
+    response = AnalysisResponse(
         version_id=result.version_id,
         test_id=result.test_id,
         test_name=result.test_name,
@@ -217,9 +220,7 @@ def run_analysis(
         alternative=result.alternative,
         alpha=result.alpha,
         sample_size=result.sample_size,
-        estimate=(
-            EstimateResponse(**result.estimate.__dict__) if result.estimate else None
-        ),
+        estimate=(EstimateResponse(**result.estimate.__dict__) if result.estimate else None),
         confidence_interval=(
             ConfidenceIntervalResponse(**result.confidence_interval.__dict__)
             if result.confidence_interval
@@ -229,16 +230,10 @@ def run_analysis(
         p_value=result.p_value,
         significant=result.significant,
         effect_size=(
-            EffectSizeResponse(**result.effect_size.__dict__)
-            if result.effect_size
-            else None
+            EffectSizeResponse(**result.effect_size.__dict__) if result.effect_size else None
         ),
-        group_summaries=[
-            GroupSummaryResponse(**item.__dict__) for item in result.group_summaries
-        ],
-        diagnostics=[
-            DiagnosticResponse(**item.__dict__) for item in result.diagnostics
-        ],
+        group_summaries=[GroupSummaryResponse(**item.__dict__) for item in result.group_summaries],
+        diagnostics=[DiagnosticResponse(**item.__dict__) for item in result.diagnostics],
         visualizations=[
             VisualizationResponse(
                 chart_type=item.chart_type,
@@ -253,3 +248,16 @@ def run_analysis(
         warnings=list(result.warnings),
         interpretation=result.interpretation,
     )
+    configuration = payload.model_dump(mode="json")
+    fingerprint = hashlib.sha256(
+        json.dumps(["analysis", str(version_id), configuration], sort_keys=True).encode()
+    ).hexdigest()
+    saved = get_control_plane().save_result(
+        version_id=version_id,
+        kind="analysis",
+        title=result.test_name,
+        fingerprint=fingerprint,
+        configuration=configuration,
+        payload=response.model_dump(mode="json", exclude={"saved_result_id"}),
+    )
+    return response.model_copy(update={"saved_result_id": saved.id})

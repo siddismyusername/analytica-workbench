@@ -9,7 +9,7 @@ from analytica_api.persistence.models import Base
 from analytica_api.persistence.unit_of_work import SqlAlchemyUnitOfWork
 from analytica_api.queue.providers import InlineJobQueue
 from analytica_api.services.control_plane import ControlPlaneService
-from analytica_api.services.explore import DatasetExploreService
+from analytica_api.services.explore import DatasetExploreService, ExploreValidationError
 from analytica_api.services.ingestion import DatasetIngestionService
 from analytica_api.services.ingestion_worker import IngestionWorker
 from analytica_api.services.transform_worker import TransformWorker
@@ -118,6 +118,34 @@ def test_descriptives_frequencies_correlations_and_crosstab(
         assert table.total == 5
         assert sum(table.row_totals) == 5
         assert sum(table.column_totals) == 5
+        assert not table.row_truncated
+        assert not table.column_truncated
+
+        with pytest.raises(ExploreValidationError, match="categorical"):
+            explore.crosstab(version_id, columns["age"], columns["region"])
+    finally:
+        database.dispose()
+
+
+def test_crosstab_marks_truncated_category_totals(tmp_path: Path) -> None:
+    database, store, control_plane, ingestion, explore = _stack(tmp_path)
+    upload = tmp_path / "categories.csv"
+    upload.write_text(
+        "group,region\nA,North\nA,South\nB,East\nB,North\nC,West\n",
+        encoding="utf-8",
+    )
+    source = store.put_file(upload, key="raw/categories/data.csv", content_type="text/csv")
+    try:
+        submission = asyncio.run(
+            ingestion.submit_uploaded_dataset(name="Categories", source_key=source.key)
+        )
+        assert submission.job.output_version_id is not None
+        version_id = submission.job.output_version_id
+        columns = _column_ids(control_plane, version_id)
+        table = explore.crosstab(version_id, columns["group"], columns["region"], limit=2)
+        assert table.row_truncated
+        assert table.column_truncated
+        assert table.total < 5
     finally:
         database.dispose()
 

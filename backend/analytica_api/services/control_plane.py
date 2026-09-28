@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
+
 from analytica_api.domain.control_plane import (
     ArtifactRecord,
     DatasetRecord,
@@ -10,6 +12,7 @@ from analytica_api.domain.control_plane import (
     DatasetVersionState,
     JobRecord,
     JobStatus,
+    SavedResultRecord,
 )
 from analytica_api.domain.datasets import DatasetSchema
 from analytica_api.ingestion.models import IngestionManifest, SourceFormat
@@ -85,13 +88,37 @@ class ControlPlaneService:
         with self.unit_of_work_factory() as unit_of_work:
             return unit_of_work.jobs.get_by_output_version_id(version_id)
 
+    def list_jobs_for_version(self, version_id: UUID, kind: str) -> tuple[JobRecord, ...]:
+        self.get_version(version_id)
+        with self.unit_of_work_factory() as unit_of_work:
+            return unit_of_work.jobs.list_for_input_version(version_id, kind)
+
+    def register_job_artifact(
+        self, *, job_id: UUID, kind: str, object_ref: StorageObjectRef
+    ) -> ArtifactRecord:
+        with self.unit_of_work_factory() as unit_of_work:
+            job = unit_of_work.jobs.get(job_id)
+            if job is None:
+                raise ControlPlaneError(f"job does not exist: {job_id}")
+            existing = unit_of_work.artifacts.get_for_job_kind(job_id, kind)
+            if existing is not None:
+                if existing.storage_key != object_ref.key:
+                    raise ControlPlaneError("job artifact key changed on retry")
+                return existing
+            artifact = unit_of_work.artifacts.create(
+                dataset_version_id=None,
+                job_id=job_id,
+                kind=kind,
+                object_ref=object_ref,
+            )
+            unit_of_work.commit()
+            return artifact
+
     def get_artifact_for_version_kind(self, version_id: UUID, kind: str) -> ArtifactRecord:
         with self.unit_of_work_factory() as unit_of_work:
             artifact = unit_of_work.artifacts.get_for_version_kind(version_id, kind)
             if artifact is None:
-                raise ControlPlaneError(
-                    f"artifact does not exist for version {version_id}: {kind}"
-                )
+                raise ControlPlaneError(f"artifact does not exist for version {version_id}: {kind}")
             return artifact
 
     def get_artifact_for_job_kind(self, job_id: UUID, kind: str) -> ArtifactRecord:
@@ -100,6 +127,66 @@ class ControlPlaneService:
             if artifact is None:
                 raise ControlPlaneError(f"artifact does not exist for job {job_id}: {kind}")
             return artifact
+
+    def get_artifact(self, artifact_id: UUID) -> ArtifactRecord:
+        with self.unit_of_work_factory() as unit_of_work:
+            artifact = unit_of_work.artifacts.get(artifact_id)
+            if artifact is None:
+                raise ControlPlaneError(f"artifact does not exist: {artifact_id}")
+            return artifact
+
+    def save_result(
+        self,
+        *,
+        version_id: UUID,
+        kind: str,
+        title: str,
+        fingerprint: str,
+        configuration: dict[str, Any],
+        payload: dict[str, Any],
+        source_job_id: UUID | None = None,
+    ) -> SavedResultRecord:
+        try:
+            with self.unit_of_work_factory() as unit_of_work:
+                version = unit_of_work.versions.get(version_id)
+                if version is None or version.state != DatasetVersionState.READY:
+                    raise ControlPlaneError("saved results require a ready dataset version")
+                if source_job_id is not None:
+                    job = unit_of_work.jobs.get(source_job_id)
+                    if job is None or job.input_version_id != version_id:
+                        raise ControlPlaneError("result job must belong to the same version")
+                existing = unit_of_work.results.get_by_fingerprint(version_id, fingerprint)
+                if existing is not None:
+                    return existing
+                result = unit_of_work.results.create(
+                    dataset_version_id=version_id,
+                    source_job_id=source_job_id,
+                    kind=kind,
+                    title=title[:255],
+                    fingerprint=fingerprint,
+                    configuration=configuration,
+                    payload=payload,
+                )
+                unit_of_work.commit()
+                return result
+        except IntegrityError:
+            with self.unit_of_work_factory() as unit_of_work:
+                existing = unit_of_work.results.get_by_fingerprint(version_id, fingerprint)
+                if existing is not None:
+                    return existing
+            raise
+
+    def list_results(self, version_id: UUID) -> tuple[SavedResultRecord, ...]:
+        self.get_version(version_id)
+        with self.unit_of_work_factory() as unit_of_work:
+            return unit_of_work.results.list_for_version(version_id)
+
+    def get_result(self, result_id: UUID) -> SavedResultRecord:
+        with self.unit_of_work_factory() as unit_of_work:
+            result = unit_of_work.results.get(result_id)
+            if result is None:
+                raise ControlPlaneError(f"saved result does not exist: {result_id}")
+            return result
 
     def create_ingestion_job(
         self,

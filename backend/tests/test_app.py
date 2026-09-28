@@ -20,3 +20,14 @@ def test_openapi_is_available() -> None:
 
     assert response.status_code == 200
     assert response.json()["info"]["title"] == "Analytica Workbench API"
+
+
+def test_capabilities_report_active_deferred_jobs() -> None:
+    response = client.get("/api/v1/capabilities")
+
+    assert response.status_code == 200
+    assert response.json()["execution"]["deferred_jobs"] == [
+        "ingestion",
+        "transform",
+        "model_train",
+    ]

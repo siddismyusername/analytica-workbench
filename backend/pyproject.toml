@@ -1,6 +1,6 @@
 [project]
 name = "analytica-workbench-backend"
-version = "0.5.0"
+version = "0.7.0"
 description = "Serverless analytical backend for Analytica Workbench"
 requires-python = ">=3.12,<3.13"
 dependencies = [
@@ -29,3 +29,9 @@ entrypoint = "analytica_api.queue.subscribers:ingest_dataset"
 
 [[tool.vercel.subscribers]]
 entrypoint = "analytica_api.queue.subscribers:transform_dataset"
+
+[[tool.vercel.subscribers]]
+entrypoint = "analytica_api.queue.subscribers:train_model"
+
+[[tool.vercel.subscribers]]
+entrypoint = "analytica_api.queue.subscribers:export_results"

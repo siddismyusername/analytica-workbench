@@ -86,7 +86,7 @@ The primary user shall be able to:
 9. Explore variables and relationships visually.
 10. Run guided statistical analyses using valid variable roles.
 11. Build and compare predictive models. **Planned.**
-12. Review consolidated analytical results and export outputs. **Planned.**
+12. Review consolidated analytical results and export outputs. **Implemented locally.**
 
 ### 5.2 Administrative/operational user
 
@@ -107,8 +107,8 @@ Operational users shall be able to deploy, monitor, migrate, and troubleshoot th
 | Prepare | Implemented | Filter, fill-null constant, deduplicate, cast, rename, drop column, preview-before-apply, history. |
 | Explore | Implemented | Descriptives, frequency, correlations, crosstabs, histogram/bar/line/scatter/box/heatmap/Q-Q. |
 | Analyze | Implemented | Guided selection plus 10 inferential tests, confidence intervals where defined, effect sizes, diagnostics and linked visuals. |
-| Model | Planned | Supervised/unsupervised model workflows, preprocessing, validation and comparison. |
-| Results | Planned | Saved analytical result registry, report composition, exports. |
+| Model | Partially implemented | Version-bound regression and classification model runs, fitted preprocessing, baseline/candidate comparison, durable artifacts and saved evaluations; unsupervised modeling remains planned. |
+| Results | Implemented locally | Version-bound analysis/chart/model snapshots, report composition, durable HTML/SVG/CSV/Parquet exports. |
 | Authentication/user isolation | Planned | No production authentication boundary exists in the current codebase. |
 | Production observability | Planned | Structured telemetry, metrics, alerting and operational dashboards. |
 
@@ -123,6 +123,8 @@ The system shall accept CSV and Parquet datasets through the primary import work
 
 ### FR-DATA-002 — Direct upload — Implemented
 Dataset bytes shall upload from the browser directly to object storage rather than being proxied through the FastAPI application.
+
+For local development only, the browser may upload to the backend's local artifact store through a development-only endpoint. This endpoint shall be unavailable in production.
 
 ### FR-DATA-003 — Server-side object verification — Implemented
 The backend shall resolve and verify the uploaded storage object before creating or dispatching ingestion work. Client-reported byte size or content metadata shall not be treated as authoritative.
@@ -322,49 +324,49 @@ The system shall eventually support prospective or retrospective power/sample-si
 
 ---
 
-## 7.6 Model — Planned
+## 7.6 Model — Partially implemented
 
-The following requirements define the next major product stage and are not implemented at the current baseline.
+The first supervised modeling MVP is implemented. Unsupervised analysis and production-scale compute remain planned.
 
-### FR-MOD-001 — Problem type selection
+### FR-MOD-001 — Problem type selection — Partially implemented
 The user shall be able to choose or be guided into regression, binary classification, multiclass classification, or unsupervised analysis based on target/feature configuration.
 
-### FR-MOD-002 — Feature/target roles
+### FR-MOD-002 — Feature/target roles — Implemented for supervised models
 The user shall be able to assign target and predictor variables using stable column IDs.
 
-### FR-MOD-003 — Leakage-safe split
+### FR-MOD-003 — Leakage-safe split — Implemented
 Supervised workflows shall create reproducible train/test splits before fitting preprocessing parameters.
 
-### FR-MOD-004 — Preprocessing pipeline
+### FR-MOD-004 — Preprocessing pipeline — Implemented for supported feature types
 Imputation, encoding and scaling required for a model shall be fitted on training data and applied consistently to validation/test data.
 
-### FR-MOD-005 — Baseline
+### FR-MOD-005 — Baseline — Implemented
 Every supervised modeling workflow shall include an appropriate baseline model/score.
 
-### FR-MOD-006 — Initial algorithms
+### FR-MOD-006 — Initial algorithms — Implemented
 Initial supported algorithms should include linear regression, logistic regression, decision trees and random forests, with the architecture allowing additional scikit-learn estimators.
 
-### FR-MOD-007 — Cross-validation
+### FR-MOD-007 — Cross-validation — Implemented for supervised models
 The user shall be able to enable cross-validation with deterministic configuration where appropriate.
 
-### FR-MOD-008 — Evaluation
+### FR-MOD-008 — Evaluation — Implemented for supervised models
 Regression shall include appropriate metrics such as MAE/RMSE/R²; classification shall include confusion matrix and threshold-independent/threshold-dependent metrics appropriate to class structure.
 
-### FR-MOD-009 — Model comparison
+### FR-MOD-009 — Model comparison — Implemented for supervised models
 Comparable models trained against the same version/split configuration shall be presented in a consistent comparison view.
 
-### FR-MOD-010 — Explainability
+### FR-MOD-010 — Explainability — Implemented for supported estimators
 The product shall expose model-appropriate feature importance or coefficient information and shall distinguish model explanation from causal explanation.
 
-### FR-MOD-011 — Durable model artifacts
+### FR-MOD-011 — Durable model artifacts — Implemented
 Trained model artifacts and metadata shall be stored by reference, associated with a dataset version/job, and reproducibly addressable.
 
-### FR-MOD-012 — Deferred execution
+### FR-MOD-012 — Deferred execution — Implemented through the job queue
 Model training that exceeds the interactive execution envelope shall run as a durable job.
 
 ---
 
-## 7.7 Results and export — Planned
+## 7.7 Results and export — Implemented locally
 
 ### FR-RES-001 — Result registry
 Analytical and model results shall be saveable as resources tied to the exact input dataset version and configuration.
@@ -753,7 +755,7 @@ V1 shall be considered functionally complete when all of the following are avail
 12. Production database, private object storage, queue configuration and operational monitoring.
 13. Successful CI and production deployment verification.
 
-At the current baseline, items 1–5 are substantially implemented; items 6–12 remain future work.
+At the current baseline, items 1–8 are substantially implemented for supervised modeling; items 9–13 remain future work. The unsupervised portion of FR-MOD remains planned.
 
 ---
 
@@ -782,8 +784,8 @@ These can be added later without violating the core dataset/version/job architec
 | Prepare | FR-PREP | Creates child versions | Implemented |
 | Explore | FR-EXP | Read-only | Implemented |
 | Analyze | FR-AN | Read-only | Implemented |
-| Model | FR-MOD | Model resources/jobs; dataset remains immutable | Planned |
-| Results | FR-RES | Saves result resources/artifacts; dataset remains immutable | Planned |
+| Model | FR-MOD | Model jobs/artifacts; dataset remains immutable | Partially implemented |
+| Results | FR-RES | Saves result resources/artifacts; dataset remains immutable | Implemented locally |
 
 ---
 

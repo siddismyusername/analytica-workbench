@@ -1,9 +1,11 @@
 "use client";
 
-import { type CSSProperties, type DragEvent, useRef, useState } from "react";
+import { type CSSProperties, type DragEvent, useEffect, useRef, useState } from "react";
 
 import { AnalyzeWorkspace } from "@/components/analyze-workspace";
 import { ExploreWorkspace } from "@/components/explore-workspace";
+import { ModelWorkspace } from "@/components/model-workspace";
+import { ResultsWorkspace } from "@/components/results-workspace";
 import styles from "./prepare-workspace.module.css";
 import {
   type DatasetColumnProfile,
@@ -33,6 +35,7 @@ const ACCEPTED_EXTENSIONS = [".csv", ".parquet"];
 const PREVIEW_PAGE_SIZE = 200;
 const ROW_HEIGHT = 38;
 const VIEWPORT_HEIGHT = 420;
+const LAST_VERSION_KEY = "analytica:last-version-id";
 const PREPARE_TOOLS = [
   ["fill_null", "Fill missing", "Replace nulls with a typed constant"],
   ["deduplicate", "Remove duplicates", "Keep one copy of each distinct row"],
@@ -43,7 +46,7 @@ const PREPARE_TOOLS = [
 ] as const;
 
 type WorkspacePhase = "idle" | "uploading" | "processing" | "profiling" | "ready" | "error";
-type ActiveView = "Data" | "Prepare" | "Explore" | "Analyze";
+type ActiveView = "Data" | "Prepare" | "Explore" | "Analyze" | "Model" | "Results";
 type PrepareTool = (typeof PREPARE_TOOLS)[number][0];
 
 function sleep(milliseconds: number): Promise<void> {
@@ -121,6 +124,21 @@ function operationSummary(operation: PrepareOperation): string {
     case "drop_columns":
       return `Drop ${operation.column_ids.length} column(s).`;
   }
+}
+
+function loadVersion(versionId: string) {
+  return Promise.all([
+    getDatasetProfile(versionId),
+    getDatasetPreview(versionId, 0, PREVIEW_PAGE_SIZE),
+    getTransformHistory(versionId),
+  ]);
+}
+
+function clearVersionLink() {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("version")) return;
+  url.searchParams.delete("version");
+  window.history.replaceState(null, "", url);
 }
 
 function DataPreviewGrid({
@@ -216,6 +234,7 @@ function TransformPreviewTable({ preview }: { preview: TransformPreview }) {
 
 export function DataWorkspace() {
   const inputRef = useRef<HTMLInputElement>(null);
+  const resourceEpoch = useRef(0);
   const [file, setFile] = useState<File | null>(null);
   const [datasetName, setDatasetName] = useState("");
   const [phase, setPhase] = useState<WorkspacePhase>("idle");
@@ -225,6 +244,7 @@ export function DataWorkspace() {
   const [preview, setPreview] = useState<DatasetPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<ActiveView>("Data");
   const [tool, setTool] = useState<PrepareTool>("fill_null");
   const [selectedColumnId, setSelectedColumnId] = useState("");
@@ -242,6 +262,39 @@ export function DataWorkspace() {
   const toolbarTitle = profile?.dataset_name ?? (datasetName || "Untitled analysis");
   const selectedColumn = profile?.columns.find((column) => column.column_id === selectedColumnId) ?? profile?.columns[0] ?? null;
 
+  useEffect(() => {
+    let versionId: string | null;
+    try {
+      versionId = new URLSearchParams(window.location.search).get("version")
+        ?? window.localStorage.getItem(LAST_VERSION_KEY);
+    } catch {
+      return;
+    }
+    if (!versionId) return;
+    const epoch = resourceEpoch.current;
+    let cancelled = false;
+    void loadVersion(versionId)
+      .then(([nextProfile, nextPreview, nextHistory]) => {
+        if (cancelled || epoch !== resourceEpoch.current) return;
+        setProfile(nextProfile);
+        setPreview(nextPreview);
+        setHistory(nextHistory);
+        setSelectedColumnId(nextProfile.columns[0]?.column_id ?? "");
+        try {
+          window.localStorage.setItem(LAST_VERSION_KEY, versionId);
+        } catch {
+          // A linked version can still open without browser storage.
+        }
+        setPhase("ready");
+      })
+      .catch(() => {
+        if (cancelled || epoch !== resourceEpoch.current) return;
+        setRestoreError("Check that the API is running, then reload to try opening your last dataset again.");
+        setPhase("idle");
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   function invalidateTransformPreview() {
     setTransformPreviewState(null);
     setPreviewedOperation(null);
@@ -255,7 +308,10 @@ export function DataWorkspace() {
       setError("Choose a CSV or Parquet file.");
       return;
     }
+    resourceEpoch.current += 1;
+    clearVersionLink();
     setError(null);
+    setRestoreError(null);
     setFile(candidate);
     setDatasetName(datasetNameFromFile(candidate));
     setPhase("idle");
@@ -299,20 +355,22 @@ export function DataWorkspace() {
   }
 
   async function refreshVersion(versionId: string) {
-    const [nextProfile, nextPreview, nextHistory] = await Promise.all([
-      getDatasetProfile(versionId),
-      getDatasetPreview(versionId, 0, PREVIEW_PAGE_SIZE),
-      getTransformHistory(versionId),
-    ]);
+    const [nextProfile, nextPreview, nextHistory] = await loadVersion(versionId);
     setProfile(nextProfile);
     setPreview(nextPreview);
     setHistory(nextHistory);
     setSelectedColumnId(nextProfile.columns[0]?.column_id ?? "");
+    try {
+      window.localStorage.setItem(LAST_VERSION_KEY, versionId);
+    } catch {
+      // The active workspace remains usable when browser storage is unavailable.
+    }
   }
 
   async function startAnalysis() {
     if (!file || !datasetName.trim()) return;
     setError(null);
+    setRestoreError(null);
     setPhase("uploading");
     setUploadProgress(0);
     try {
@@ -415,6 +473,13 @@ export function DataWorkspace() {
   }
 
   function resetWorkspace() {
+    resourceEpoch.current += 1;
+    clearVersionLink();
+    try {
+      window.localStorage.removeItem(LAST_VERSION_KEY);
+    } catch {
+      // The in-memory workspace can still be reset.
+    }
     setFile(null);
     setDatasetName("");
     setPhase("idle");
@@ -424,6 +489,7 @@ export function DataWorkspace() {
     setPreview(null);
     setHistory([]);
     setError(null);
+    setRestoreError(null);
     setActiveView("Data");
     invalidateTransformPreview();
     if (inputRef.current) inputRef.current.value = "";
@@ -497,9 +563,9 @@ export function DataWorkspace() {
       <aside className="sidebar glass-surface" aria-label="Primary navigation">
         <div className="brand-lockup"><div className="brand-mark">A</div><div><strong>Analytica</strong><span>Workbench</span></div></div>
         <nav>{WORKFLOW.map((item, index) => {
-          const available = item === "Data" || ((item === "Prepare" || item === "Explore" || item === "Analyze") && profile !== null);
+          const available = item === "Data" || profile !== null;
           const active = item === activeView;
-          return <button className={active ? "nav-item active" : "nav-item"} key={item} type="button" disabled={!available} onClick={() => { if (item === "Data" || item === "Prepare" || item === "Explore" || item === "Analyze") setActiveView(item); }}><span className="nav-index">0{index + 1}</span>{item}</button>;
+          return <button className={active ? "nav-item active" : "nav-item"} key={item} type="button" disabled={!available} onClick={() => setActiveView(item)}><span className="nav-index">0{index + 1}</span>{item}</button>;
         })}</nav>
         <div className="sidebar-status"><span className="status-dot" />Immutable workspace</div>
       </aside>
@@ -509,7 +575,7 @@ export function DataWorkspace() {
         <input className="visually-hidden" ref={inputRef} type="file" accept=".csv,.parquet,text/csv,application/vnd.apache.parquet" onChange={(event) => chooseFile(event.target.files?.item(0) ?? null)} />
 
         {profile && preview ? (
-          activeView === "Prepare" ? renderPrepareView() : activeView === "Explore" ? <ExploreWorkspace key={profile.version_id} profile={profile} /> : activeView === "Analyze" ? <AnalyzeWorkspace key={profile.version_id} profile={profile} /> : renderDataView()
+          activeView === "Prepare" ? renderPrepareView() : activeView === "Explore" ? <ExploreWorkspace key={profile.version_id} profile={profile} /> : activeView === "Analyze" ? <AnalyzeWorkspace key={profile.version_id} profile={profile} /> : activeView === "Model" ? <ModelWorkspace key={profile.version_id} profile={profile} /> : activeView === "Results" ? <ResultsWorkspace key={profile.version_id} profile={profile} /> : renderDataView()
         ) : (
           <section className="import-surface" aria-labelledby="import-title">
             <div className="import-copy"><p className="eyebrow">Data workspace</p><h2 id="import-title">Start with the data, not the tooling.</h2><p>Upload CSV or Parquet. Analytica creates an immutable canonical dataset, profiles its quality, and opens a bounded analytical preview.</p></div>
@@ -519,6 +585,7 @@ export function DataWorkspace() {
             </div>
             {isBusy ? <div className="processing-card" aria-live="polite"><div className="processing-copy"><div><p className="eyebrow">In progress</p><strong>{phaseLabel(phase, ingestion)}</strong></div><span>{phase === "uploading" ? `${uploadProgress}%` : ingestion?.status ?? "working"}</span></div><div className="progress-track" aria-hidden="true"><span style={{ width: phase === "uploading" ? `${uploadProgress}%` : phase === "processing" ? "72%" : "92%" }} /></div><div className="stage-row"><span className="complete">Upload</span><span className={phase === "processing" || phase === "profiling" ? "complete" : ""}>Ingest</span><span className={phase === "profiling" ? "complete" : ""}>Profile</span></div></div> : null}
             {error ? <div className="error-banner" role="alert"><strong>Could not prepare this dataset.</strong><span>{error}</span><button type="button" onClick={() => setPhase("idle")}>Try again</button></div> : null}
+            {restoreError ? <div className="error-banner" role="alert"><strong>Could not reopen your last dataset.</strong><span>{restoreError}</span><button type="button" onClick={() => window.location.reload()}>Retry</button></div> : null}
             <div className="import-footnotes"><span>Direct-to-storage upload</span><span>Immutable canonical Parquet</span><span>Reproducible dataset versions</span></div>
           </section>
         )}

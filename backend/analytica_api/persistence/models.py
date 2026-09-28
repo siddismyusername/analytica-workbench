@@ -46,9 +46,7 @@ class DatasetModel(Base):
         DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now
     )
 
-    __table_args__ = (
-        CheckConstraint("next_version_number >= 1", name="next_version_positive"),
-    )
+    __table_args__ = (CheckConstraint("next_version_number >= 1", name="next_version_positive"),)
 
 
 class DatasetVersionModel(Base):
@@ -78,9 +76,7 @@ class DatasetVersionModel(Base):
         CheckConstraint("version_number >= 1", name="version_number_positive"),
         CheckConstraint("row_count >= 0", name="row_count_nonnegative"),
         CheckConstraint("byte_size >= 0", name="byte_size_nonnegative"),
-        CheckConstraint(
-            "state IN ('pending', 'ready', 'failed')", name="dataset_version_state"
-        ),
+        CheckConstraint("state IN ('pending', 'ready', 'failed')", name="dataset_version_state"),
         Index("ix_dataset_versions_dataset_created", "dataset_id", "created_at"),
     )
 
@@ -153,4 +149,29 @@ class ArtifactModel(Base):
         UniqueConstraint("dataset_version_id", "kind", name="dataset_version_artifact_kind"),
         UniqueConstraint("job_id", "kind", name="job_artifact_kind"),
         Index("ix_artifacts_job_kind", "job_id", "kind"),
+    )
+
+
+class SavedResultModel(Base):
+    __tablename__ = "saved_results"
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    dataset_version_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("dataset_versions.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_job_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=True
+    )
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    configuration: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+    __table_args__ = (
+        UniqueConstraint("dataset_version_id", "fingerprint", name="result_version_fingerprint"),
+        Index("ix_saved_results_version_created", "dataset_version_id", "created_at"),
     )

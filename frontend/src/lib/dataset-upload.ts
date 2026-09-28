@@ -48,7 +48,7 @@ export type DatasetPreview = {
 type PresignedUpload = {
   pathname: string;
   presignedUrl: string;
-  expiresAt: string;
+  expiresAt: string | null;
   contentType: string;
 };
 

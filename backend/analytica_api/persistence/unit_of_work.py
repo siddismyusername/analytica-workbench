@@ -8,10 +8,12 @@ from analytica_api.persistence.repositories import (
     DatasetRepository,
     DatasetVersionRepository,
     JobRepository,
+    SavedResultRepository,
     SqlAlchemyArtifactRepository,
     SqlAlchemyDatasetRepository,
     SqlAlchemyDatasetVersionRepository,
     SqlAlchemyJobRepository,
+    SqlAlchemySavedResultRepository,
 )
 
 
@@ -20,6 +22,7 @@ class UnitOfWork(Protocol):
     versions: DatasetVersionRepository
     artifacts: ArtifactRepository
     jobs: JobRepository
+    results: SavedResultRepository
 
     def __enter__(self) -> Self: ...
 
@@ -41,6 +44,7 @@ class SqlAlchemyUnitOfWork:
         self.versions = SqlAlchemyDatasetVersionRepository(self.session)
         self.artifacts = SqlAlchemyArtifactRepository(self.session)
         self.jobs = SqlAlchemyJobRepository(self.session)
+        self.results = SqlAlchemySavedResultRepository(self.session)
         return self
 
     def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:

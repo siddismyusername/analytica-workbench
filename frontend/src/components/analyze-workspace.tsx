@@ -304,7 +304,7 @@ export function AnalyzeWorkspace({ profile }: { profile: DatasetProfile }) {
             {selectedTestId && DIRECTIONAL_TESTS.has(selectedTestId) ? (
               <label className={styles.alternativeField}>
                 <span>Alternative hypothesis</span>
-                <select value={alternative} onChange={(event) => setAlternative(event.target.value as AnalysisAlternative)}>
+                <select value={alternative} onChange={(event) => { setAlternative(event.target.value as AnalysisAlternative); setResult(null); }}>
                   <option value="two-sided">Two-sided</option>
                   <option value="less">Less than / negative association</option>
                   <option value="greater">Greater than / positive association</option>
