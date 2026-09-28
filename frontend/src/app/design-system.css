@@ -1,0 +1,66 @@
+:root {
+  /* Typography */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Canonical semantic aliases used by workspace modules. */
+  --text-primary: var(--text);
+  --text-muted: var(--muted);
+  --surface-muted: var(--content-subtle);
+  --border-subtle: var(--border);
+
+  /* Semantic status roles. */
+  --success-text: #166534;
+  --success-soft: color-mix(in srgb, var(--success) 10%, transparent);
+  --success-border: color-mix(in srgb, var(--success) 28%, var(--border));
+  --warning-text: #92400e;
+  --warning-border: color-mix(in srgb, var(--warning) 30%, var(--border));
+  --danger-text: var(--danger);
+  --danger-border: color-mix(in srgb, var(--danger) 28%, var(--border));
+
+  /* Component roles built from the canonical radius scale. */
+  --radius-control: var(--radius-sm);
+  --radius-card: var(--radius-md);
+  --radius-panel: var(--radius-lg);
+  --radius-shell: var(--radius-xl);
+  --radius-pill: 999px;
+
+  /* Shared action treatment. */
+  --accent-gradient: linear-gradient(180deg, #3474f3, #1d5dde);
+  --accent-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 5px 14px rgba(37, 99, 235, 0.20);
+
+  /* Spacing scale. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Motion. */
+  --motion-fast: 140ms;
+  --motion-standard: 160ms;
+  --motion-progress: 220ms;
+  --ease-standard: ease;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --success-text: #86efac;
+    --warning-text: #fcd34d;
+    --danger-text: #fca5a5;
+  }
+}
