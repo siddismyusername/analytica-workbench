@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any, Iterator
+from typing import Any
 from uuid import UUID
 
 import duckdb
@@ -114,7 +115,7 @@ class ExploreValidationError(ValueError):
 
 
 class DatasetExploreService:
-    """Read-only exploratory analysis over one immutable canonical dataset version."""
+    """Read-only exploratory analysis over an immutable canonical dataset version."""
 
     def __init__(
         self,
@@ -129,12 +130,18 @@ class DatasetExploreService:
         version = self.control_plane.get_version(version_id)
         schema = DatasetSchema.model_validate(version.schema_snapshot)
         artifact = self.control_plane.get_artifact_for_version_kind(
-            version_id, "canonical_dataset"
+            version_id,
+            "canonical_dataset",
         )
         return version, schema, artifact
 
     @contextmanager
-    def _connection(self, version_id: UUID) -> Iterator[tuple[Any, DatasetSchema, duckdb.DuckDBPyConnection, Path]]:
+    def _connection(
+        self,
+        version_id: UUID,
+    ) -> Iterator[
+        tuple[Any, DatasetSchema, duckdb.DuckDBPyConnection, Path]
+    ]:
         version, schema, artifact = self._context(version_id)
         object_ref = StorageObjectRef(
             key=artifact.storage_key,
@@ -144,7 +151,8 @@ class DatasetExploreService:
         )
         with TemporaryDirectory(prefix="analytica-explore-") as directory:
             path = self.artifact_store.materialize(
-                object_ref, Path(directory) / "dataset.parquet"
+                object_ref,
+                Path(directory) / "dataset.parquet",
             )
             connection = duckdb.connect(database=":memory:")
             try:
@@ -158,7 +166,11 @@ class DatasetExploreService:
             raise ExploreValidationError(f"unknown column_id: {column_id}")
         return column
 
-    def _numeric_column(self, schema: DatasetSchema, column_id: str) -> DatasetColumn:
+    def _numeric_column(
+        self,
+        schema: DatasetSchema,
+        column_id: str,
+    ) -> DatasetColumn:
         column = self._column(schema, column_id)
         if column.data_type not in _NUMERIC_TYPES:
             raise ExploreValidationError(
@@ -190,7 +202,8 @@ class DatasetExploreService:
                     ]
                 )
             row = connection.execute(
-                f"SELECT {', '.join(metrics)} FROM read_parquet(?)", [str(path)]
+                f"SELECT {', '.join(metrics)} FROM read_parquet(?)",
+                [str(path)],
             ).fetchone()
             if row is None:
                 raise RuntimeError("descriptive query returned no row")
@@ -229,23 +242,31 @@ class DatasetExploreService:
         )
 
     def frequencies(
-        self, version_id: UUID, column_id: str, *, limit: int = 30
+        self,
+        version_id: UUID,
+        column_id: str,
+        *,
+        limit: int = 30,
     ) -> FrequencyResult:
         if not 1 <= limit <= 100:
-            raise ExploreValidationError("frequency limit must be between 1 and 100")
+            raise ExploreValidationError(
+                "frequency limit must be between 1 and 100"
+            )
         with self._connection(version_id) as (version, schema, connection, path):
             column = self._column(schema, column_id)
             identifier = _quote(column.physical_name)
-            total = int(
-                connection.execute("SELECT COUNT(*) FROM read_parquet(?)", [str(path)]).fetchone()[0]
-            )
+            count_row = connection.execute(
+                "SELECT COUNT(*) FROM read_parquet(?)",
+                [str(path)],
+            ).fetchone()
+            total = int(count_row[0]) if count_row else 0
             rows = connection.execute(
                 f"SELECT {identifier}, COUNT(*) AS n FROM read_parquet(?) "
                 f"GROUP BY {identifier} ORDER BY n DESC, 1 LIMIT ?",
                 [str(path), limit + 1],
             ).fetchall()
+
         truncated = len(rows) > limit
-        rows = rows[:limit]
         return FrequencyResult(
             version_id=version.id,
             column_id=column.column_id,
@@ -258,49 +279,71 @@ class DatasetExploreService:
                     count=int(count),
                     percentage=_percentage(int(count), total),
                 )
-                for value, count in rows
+                for value, count in rows[:limit]
             ),
         )
 
     def correlation(
-        self, version_id: UUID, column_ids: tuple[str, ...] | None = None
+        self,
+        version_id: UUID,
+        column_ids: tuple[str, ...] | None = None,
     ) -> CorrelationResult:
         with self._connection(version_id) as (version, schema, connection, path):
             if column_ids:
-                columns = tuple(self._numeric_column(schema, item) for item in column_ids)
+                columns = tuple(
+                    self._numeric_column(schema, item) for item in column_ids
+                )
             else:
                 columns = tuple(
-                    column for column in schema.columns if column.data_type in _NUMERIC_TYPES
+                    column
+                    for column in schema.columns
+                    if column.data_type in _NUMERIC_TYPES
                 )
             if len(columns) < 2:
-                raise ExploreValidationError("correlation requires at least two numeric columns")
+                raise ExploreValidationError(
+                    "correlation requires at least two numeric columns"
+                )
             if len(columns) > 20:
-                raise ExploreValidationError("correlation supports at most 20 columns per query")
+                raise ExploreValidationError(
+                    "correlation supports at most 20 columns per query"
+                )
+
             expressions: list[str] = []
             pairs: list[tuple[int, int]] = []
             for row_index, left in enumerate(columns):
                 for column_index in range(row_index, len(columns)):
                     right = columns[column_index]
                     expressions.append(
-                        f"CORR({_quote(left.physical_name)}, {_quote(right.physical_name)})"
+                        f"CORR({_quote(left.physical_name)}, "
+                        f"{_quote(right.physical_name)})"
                     )
                     pairs.append((row_index, column_index))
             values = connection.execute(
-                f"SELECT {', '.join(expressions)} FROM read_parquet(?)", [str(path)]
+                f"SELECT {', '.join(expressions)} FROM read_parquet(?)",
+                [str(path)],
             ).fetchone()
+
         if values is None:
             raise RuntimeError("correlation query returned no row")
         matrix: list[list[float | None]] = [
             [None for _ in columns] for _ in columns
         ]
-        for (row_index, column_index), raw in zip(pairs, values, strict=True):
-            value = float(raw) if raw is not None and math.isfinite(float(raw)) else None
+        for (row_index, column_index), raw in zip(
+            pairs,
+            values,
+            strict=True,
+        ):
+            numeric_value = float(raw) if raw is not None else math.nan
+            value = numeric_value if math.isfinite(numeric_value) else None
             matrix[row_index][column_index] = value
             matrix[column_index][row_index] = value
+
         return CorrelationResult(
             version_id=version.id,
             method="pearson",
-            columns=tuple((column.column_id, column.display_name) for column in columns),
+            columns=tuple(
+                (column.column_id, column.display_name) for column in columns
+            ),
             matrix=tuple(tuple(row) for row in matrix),
         )
 
@@ -315,7 +358,10 @@ class DatasetExploreService:
         if row_column_id == column_column_id:
             raise ExploreValidationError("crosstab columns must be different")
         if not 2 <= limit <= 20:
-            raise ExploreValidationError("crosstab category limit must be between 2 and 20")
+            raise ExploreValidationError(
+                "crosstab category limit must be between 2 and 20"
+            )
+
         with self._connection(version_id) as (version, schema, connection, path):
             row_column = self._column(schema, row_column_id)
             column_column = self._column(schema, column_column_id)
@@ -324,7 +370,9 @@ class DatasetExploreService:
             row_values = [
                 item[0]
                 for item in connection.execute(
-                    f"SELECT {row_identifier}, COUNT(*) AS n FROM read_parquet(?) "
+                    f"SELECT {row_identifier}, COUNT(*) AS n "
+                    "FROM read_parquet(?) "
+                    f"WHERE {row_identifier} IS NOT NULL "
                     f"GROUP BY {row_identifier} ORDER BY n DESC LIMIT ?",
                     [str(path), limit],
                 ).fetchall()
@@ -332,13 +380,17 @@ class DatasetExploreService:
             column_values = [
                 item[0]
                 for item in connection.execute(
-                    f"SELECT {column_identifier}, COUNT(*) AS n FROM read_parquet(?) "
+                    f"SELECT {column_identifier}, COUNT(*) AS n "
+                    "FROM read_parquet(?) "
+                    f"WHERE {column_identifier} IS NOT NULL "
                     f"GROUP BY {column_identifier} ORDER BY n DESC LIMIT ?",
                     [str(path), limit],
                 ).fetchall()
             ]
             if not row_values or not column_values:
-                raise ExploreValidationError("crosstab requires observed values in both columns")
+                raise ExploreValidationError(
+                    "crosstab requires observed values in both columns"
+                )
             row_placeholders = ", ".join("?" for _ in row_values)
             column_placeholders = ", ".join("?" for _ in column_values)
             rows = connection.execute(
@@ -349,8 +401,11 @@ class DatasetExploreService:
                 f"GROUP BY {row_identifier}, {column_identifier}",
                 [str(path), *row_values, *column_values],
             ).fetchall()
+
         row_index = {value: index for index, value in enumerate(row_values)}
-        column_index = {value: index for index, value in enumerate(column_values)}
+        column_index = {
+            value: index for index, value in enumerate(column_values)
+        }
         counts = [[0 for _ in column_values] for _ in row_values]
         for row_value, column_value, count in rows:
             counts[row_index[row_value]][column_index[column_value]] = int(count)
@@ -362,7 +417,10 @@ class DatasetExploreService:
         return CrosstabResult(
             version_id=version.id,
             row_column=(row_column.column_id, row_column.display_name),
-            column_column=(column_column.column_id, column_column.display_name),
+            column_column=(
+                column_column.column_id,
+                column_column.display_name,
+            ),
             row_values=tuple(_json_value(value) for value in row_values),
             column_values=tuple(_json_value(value) for value in column_values),
             counts=tuple(tuple(row) for row in counts),
@@ -381,13 +439,25 @@ class DatasetExploreService:
         bins: int = 20,
         limit: int = 50,
     ) -> VisualizationResult:
-        supported = {"histogram", "bar", "line", "scatter", "box", "heatmap", "qq"}
+        supported = {
+            "histogram",
+            "bar",
+            "line",
+            "scatter",
+            "box",
+            "heatmap",
+            "qq",
+        }
         if chart_type not in supported:
-            raise ExploreValidationError(f"unsupported chart type: {chart_type}")
+            raise ExploreValidationError(
+                f"unsupported chart type: {chart_type}"
+            )
         if not 5 <= bins <= 100:
             raise ExploreValidationError("bins must be between 5 and 100")
         if not 5 <= limit <= 5000:
-            raise ExploreValidationError("visualization limit must be between 5 and 5000")
+            raise ExploreValidationError(
+                "visualization limit must be between 5 and 5000"
+            )
         if chart_type == "heatmap":
             return self._correlation_heatmap(version_id)
         if chart_type == "histogram":
@@ -399,18 +469,35 @@ class DatasetExploreService:
         if chart_type == "qq":
             return self._qq(version_id, x_column_id, min(limit, 5000))
         if y_column_id is None:
-            raise ExploreValidationError(f"{chart_type} requires a y column")
+            raise ExploreValidationError(
+                f"{chart_type} requires a y column"
+            )
         if chart_type == "scatter":
-            return self._scatter(version_id, x_column_id, y_column_id, min(limit, 5000))
-        return self._line(version_id, x_column_id, y_column_id, min(limit, 1000))
+            return self._scatter(
+                version_id,
+                x_column_id,
+                y_column_id,
+                min(limit, 5000),
+            )
+        return self._line(
+            version_id,
+            x_column_id,
+            y_column_id,
+            min(limit, 1000),
+        )
 
-    def _histogram(self, version_id: UUID, column_id: str, bins: int) -> VisualizationResult:
+    def _histogram(
+        self,
+        version_id: UUID,
+        column_id: str,
+        bins: int,
+    ) -> VisualizationResult:
         with self._connection(version_id) as (version, schema, connection, path):
             column = self._numeric_column(schema, column_id)
             identifier = _quote(column.physical_name)
             bounds = connection.execute(
-                f"SELECT MIN({identifier}), MAX({identifier}), COUNT({identifier}) "
-                "FROM read_parquet(?)",
+                f"SELECT MIN({identifier}), MAX({identifier}), "
+                f"COUNT({identifier}) FROM read_parquet(?)",
                 [str(path)],
             ).fetchone()
             if bounds is None or bounds[0] is None:
@@ -419,13 +506,21 @@ class DatasetExploreService:
                 minimum = float(bounds[0])
                 maximum = float(bounds[1])
                 if minimum == maximum:
-                    data = ({"start": minimum, "end": maximum, "count": int(bounds[2])},)
+                    data = (
+                        {
+                            "start": minimum,
+                            "end": maximum,
+                            "count": int(bounds[2]),
+                        },
+                    )
                 else:
                     width = (maximum - minimum) / bins
                     rows = connection.execute(
-                        f"SELECT LEAST(?, CAST(FLOOR(({identifier} - ?) / ?) AS INTEGER)) AS bin, "
-                        "COUNT(*) FROM read_parquet(?) "
-                        f"WHERE {identifier} IS NOT NULL GROUP BY bin ORDER BY bin",
+                        f"SELECT LEAST(?, CAST(FLOOR(({identifier} - ?) / ?) "
+                        "AS INTEGER)) AS bin, COUNT(*) "
+                        "FROM read_parquet(?) "
+                        f"WHERE {identifier} IS NOT NULL "
+                        "GROUP BY bin ORDER BY bin",
                         [bins - 1, minimum, width, str(path)],
                     ).fetchall()
                     data = tuple(
@@ -446,7 +541,12 @@ class DatasetExploreService:
             metadata={"bins": bins},
         )
 
-    def _bar(self, version_id: UUID, column_id: str, limit: int) -> VisualizationResult:
+    def _bar(
+        self,
+        version_id: UUID,
+        column_id: str,
+        limit: int,
+    ) -> VisualizationResult:
         result = self.frequencies(version_id, column_id, limit=limit)
         return VisualizationResult(
             version_id=result.version_id,
@@ -455,25 +555,38 @@ class DatasetExploreService:
             x_label=result.column_name,
             y_label="Count",
             data=tuple(
-                {"category": "(missing)" if item.value is None else str(item.value), "value": item.count}
+                {
+                    "category": (
+                        "(missing)" if item.value is None else str(item.value)
+                    ),
+                    "value": item.count,
+                }
                 for item in result.items
             ),
             metadata={"truncated": result.truncated},
         )
 
     def _line(
-        self, version_id: UUID, x_column_id: str, y_column_id: str, limit: int
+        self,
+        version_id: UUID,
+        x_column_id: str,
+        y_column_id: str,
+        limit: int,
     ) -> VisualizationResult:
         with self._connection(version_id) as (version, schema, connection, path):
             x_column = self._column(schema, x_column_id)
             y_column = self._numeric_column(schema, y_column_id)
             if x_column.data_type not in _NUMERIC_TYPES | _TEMPORAL_TYPES:
-                raise ExploreValidationError("line chart x column must be numeric or temporal")
+                raise ExploreValidationError(
+                    "line chart x column must be numeric or temporal"
+                )
             x_identifier = _quote(x_column.physical_name)
             y_identifier = _quote(y_column.physical_name)
             rows = connection.execute(
-                f"SELECT {x_identifier}, AVG({y_identifier}) AS value FROM read_parquet(?) "
-                f"WHERE {x_identifier} IS NOT NULL AND {y_identifier} IS NOT NULL "
+                f"SELECT {x_identifier}, AVG({y_identifier}) AS value "
+                "FROM read_parquet(?) "
+                f"WHERE {x_identifier} IS NOT NULL "
+                f"AND {y_identifier} IS NOT NULL "
                 f"GROUP BY {x_identifier} ORDER BY {x_identifier} LIMIT ?",
                 [str(path), limit],
             ).fetchall()
@@ -483,12 +596,18 @@ class DatasetExploreService:
             title=f"{y_column.display_name} by {x_column.display_name}",
             x_label=x_column.display_name,
             y_label=y_column.display_name,
-            data=tuple({"x": _json_value(x), "y": float(y)} for x, y in rows),
+            data=tuple(
+                {"x": _json_value(x), "y": float(y)} for x, y in rows
+            ),
             metadata={"aggregation": "mean"},
         )
 
     def _scatter(
-        self, version_id: UUID, x_column_id: str, y_column_id: str, limit: int
+        self,
+        version_id: UUID,
+        x_column_id: str,
+        y_column_id: str,
+        limit: int,
     ) -> VisualizationResult:
         with self._connection(version_id) as (version, schema, connection, path):
             x_column = self._numeric_column(schema, x_column_id)
@@ -496,9 +615,11 @@ class DatasetExploreService:
             x_identifier = _quote(x_column.physical_name)
             y_identifier = _quote(y_column.physical_name)
             rows = connection.execute(
-                f"SELECT {x_identifier}, {y_identifier} FROM read_parquet(?) "
+                f"SELECT {x_identifier}, {y_identifier} "
+                "FROM read_parquet(?) "
                 f"USING SAMPLE reservoir({limit} ROWS) "
-                f"WHERE {x_identifier} IS NOT NULL AND {y_identifier} IS NOT NULL",
+                f"WHERE {x_identifier} IS NOT NULL "
+                f"AND {y_identifier} IS NOT NULL",
                 [str(path)],
             ).fetchall()
         return VisualizationResult(
@@ -507,26 +628,38 @@ class DatasetExploreService:
             title=f"{y_column.display_name} vs {x_column.display_name}",
             x_label=x_column.display_name,
             y_label=y_column.display_name,
-            data=tuple({"x": float(x), "y": float(y)} for x, y in rows),
+            data=tuple(
+                {"x": float(x), "y": float(y)} for x, y in rows
+            ),
             metadata={"sample_size": len(rows)},
         )
 
     def _box(
-        self, version_id: UUID, numeric_column_id: str, group_column_id: str | None
+        self,
+        version_id: UUID,
+        numeric_column_id: str,
+        group_column_id: str | None,
     ) -> VisualizationResult:
         with self._connection(version_id) as (version, schema, connection, path):
             numeric = self._numeric_column(schema, numeric_column_id)
             numeric_identifier = _quote(numeric.physical_name)
             if group_column_id is None:
                 rows = connection.execute(
-                    f"SELECT MIN({numeric_identifier}), QUANTILE_CONT({numeric_identifier}, 0.25), "
-                    f"MEDIAN({numeric_identifier}), QUANTILE_CONT({numeric_identifier}, 0.75), "
-                    f"MAX({numeric_identifier}) FROM read_parquet(?) WHERE {numeric_identifier} IS NOT NULL",
+                    f"SELECT MIN({numeric_identifier}), "
+                    f"QUANTILE_CONT({numeric_identifier}, 0.25), "
+                    f"MEDIAN({numeric_identifier}), "
+                    f"QUANTILE_CONT({numeric_identifier}, 0.75), "
+                    f"MAX({numeric_identifier}) FROM read_parquet(?) "
+                    f"WHERE {numeric_identifier} IS NOT NULL",
                     [str(path)],
                 ).fetchall()
                 data = tuple(
-                    {"category": numeric.display_name, "values": [float(value) for value in row]}
-                    for row in rows if all(value is not None for value in row)
+                    {
+                        "category": numeric.display_name,
+                        "values": [float(value) for value in row],
+                    }
+                    for row in rows
+                    if all(value is not None for value in row)
                 )
                 title = f"Box plot of {numeric.display_name}"
             else:
@@ -534,19 +667,24 @@ class DatasetExploreService:
                 group_identifier = _quote(group.physical_name)
                 rows = connection.execute(
                     f"SELECT {group_identifier}, MIN({numeric_identifier}), "
-                    f"QUANTILE_CONT({numeric_identifier}, 0.25), MEDIAN({numeric_identifier}), "
-                    f"QUANTILE_CONT({numeric_identifier}, 0.75), MAX({numeric_identifier}), COUNT(*) AS n "
+                    f"QUANTILE_CONT({numeric_identifier}, 0.25), "
+                    f"MEDIAN({numeric_identifier}), "
+                    f"QUANTILE_CONT({numeric_identifier}, 0.75), "
+                    f"MAX({numeric_identifier}), COUNT(*) AS n "
                     "FROM read_parquet(?) "
-                    f"WHERE {numeric_identifier} IS NOT NULL GROUP BY {group_identifier} "
-                    "ORDER BY n DESC LIMIT 12",
+                    f"WHERE {numeric_identifier} IS NOT NULL "
+                    f"GROUP BY {group_identifier} ORDER BY n DESC LIMIT 12",
                     [str(path)],
                 ).fetchall()
                 data = tuple(
                     {
-                        "category": "(missing)" if row[0] is None else str(row[0]),
+                        "category": (
+                            "(missing)" if row[0] is None else str(row[0])
+                        ),
                         "values": [float(value) for value in row[1:6]],
                     }
-                    for row in rows if all(value is not None for value in row[1:6])
+                    for row in rows
+                    if all(value is not None for value in row[1:6])
                 )
                 title = f"{numeric.display_name} by {group.display_name}"
         return VisualizationResult(
@@ -559,22 +697,35 @@ class DatasetExploreService:
             metadata={},
         )
 
-    def _qq(self, version_id: UUID, column_id: str, limit: int) -> VisualizationResult:
+    def _qq(
+        self,
+        version_id: UUID,
+        column_id: str,
+        limit: int,
+    ) -> VisualizationResult:
         with self._connection(version_id) as (version, schema, connection, path):
             column = self._numeric_column(schema, column_id)
             identifier = _quote(column.physical_name)
             rows = connection.execute(
-                f"SELECT {identifier} FROM read_parquet(?) USING SAMPLE reservoir({limit} ROWS) "
+                f"SELECT {identifier} FROM read_parquet(?) "
+                f"USING SAMPLE reservoir({limit} ROWS) "
                 f"WHERE {identifier} IS NOT NULL",
                 [str(path)],
             ).fetchall()
         sample = np.asarray([float(row[0]) for row in rows], dtype=float)
         if sample.size < 3:
-            raise ExploreValidationError("Q-Q plot requires at least three observed values")
-        (theoretical, ordered), (slope, intercept, r_value) = stats.probplot(sample, dist="norm", fit=True)
+            raise ExploreValidationError(
+                "Q-Q plot requires at least three observed values"
+            )
+        probability = stats.probplot(sample, dist="norm", fit=True)
+        (theoretical, ordered), (slope, intercept, r_value) = probability
         data = tuple(
             {"x": float(x), "y": float(y)}
-            for x, y in zip(theoretical.tolist(), ordered.tolist(), strict=True)
+            for x, y in zip(
+                theoretical.tolist(),
+                ordered.tolist(),
+                strict=True,
+            )
         )
         return VisualizationResult(
             version_id=version.id,
@@ -591,7 +742,10 @@ class DatasetExploreService:
             },
         )
 
-    def _correlation_heatmap(self, version_id: UUID) -> VisualizationResult:
+    def _correlation_heatmap(
+        self,
+        version_id: UUID,
+    ) -> VisualizationResult:
         result = self.correlation(version_id)
         data: list[dict[str, Any]] = []
         for row_index, (_, row_name) in enumerate(result.columns):
