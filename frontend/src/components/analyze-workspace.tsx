@@ -117,7 +117,7 @@ export function AnalyzeWorkspace({ profile }: { profile: DatasetProfile }) {
     try {
       const payload = {
         goal,
-        outcomeColumnId,
+        outcomeColumnId: goal === "categorical_association" ? groupColumnId : outcomeColumnId,
         groupColumnId: goal === "compare_groups" ? groupColumnId : null,
         secondaryColumnId:
           goal === "categorical_association"
@@ -148,7 +148,7 @@ export function AnalyzeWorkspace({ profile }: { profile: DatasetProfile }) {
     try {
       const next = await runAnalysis(profile.version_id, {
         testId: selectedTestId,
-        xColumnId: outcomeColumnId,
+        xColumnId: goal === "categorical_association" ? groupColumnId : outcomeColumnId,
         yColumnId:
           goal === "categorical_association"
             ? categorySecondId
