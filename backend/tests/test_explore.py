@@ -1,6 +1,8 @@
 import asyncio
 from pathlib import Path
 
+import pytest
+
 from analytica_api.config import Settings
 from analytica_api.persistence.database import Database
 from analytica_api.persistence.models import Base
@@ -18,14 +20,22 @@ def _stack(tmp_path: Path):
     database = Database(f"sqlite+pysqlite:///{tmp_path / 'explore.db'}")
     Base.metadata.create_all(database.engine)
     store = LocalArtifactStore(tmp_path / "artifacts")
-    settings = Settings(environment="test", local_artifact_root=str(tmp_path / "artifacts"))
-    control_plane = ControlPlaneService(lambda: SqlAlchemyUnitOfWork(database.session_factory))
+    settings = Settings(
+        environment="test",
+        local_artifact_root=str(tmp_path / "artifacts"),
+    )
+    control_plane = ControlPlaneService(
+        lambda: SqlAlchemyUnitOfWork(database.session_factory)
+    )
     ingestion_worker = IngestionWorker(
         settings=settings,
         control_plane=control_plane,
         store=store,
     )
-    transform_worker = TransformWorker(control_plane=control_plane, store=store)
+    transform_worker = TransformWorker(
+        control_plane=control_plane,
+        store=store,
+    )
     queue = InlineJobQueue(ingestion_worker.run, transform_worker.run)
     ingestion = DatasetIngestionService(
         settings=settings,
@@ -51,9 +61,16 @@ def _ingest(tmp_path: Path, store, ingestion, control_plane):
         "B,South,60,500\n",
         encoding="utf-8",
     )
-    source = store.put_file(upload, key="raw/explore/data.csv", content_type="text/csv")
+    source = store.put_file(
+        upload,
+        key="raw/explore/data.csv",
+        content_type="text/csv",
+    )
     submission = asyncio.run(
-        ingestion.submit_uploaded_dataset(name="Explore data", source_key=source.key)
+        ingestion.submit_uploaded_dataset(
+            name="Explore data",
+            source_key=source.key,
+        )
     )
     job = control_plane.get_job(submission.job.id)
     assert job.output_version_id is not None
@@ -62,10 +79,15 @@ def _ingest(tmp_path: Path, store, ingestion, control_plane):
 
 def _column_ids(control_plane, version_id):
     schema = control_plane.get_version(version_id).schema_snapshot["columns"]
-    return {column["physical_name"]: column["column_id"] for column in schema}
+    return {
+        column["physical_name"]: column["column_id"]
+        for column in schema
+    }
 
 
-def test_descriptives_frequencies_correlations_and_crosstab(tmp_path: Path) -> None:
+def test_descriptives_frequencies_correlations_and_crosstab(
+    tmp_path: Path,
+) -> None:
     database, store, control_plane, ingestion, explore = _stack(tmp_path)
     try:
         version_id = _ingest(tmp_path, store, ingestion, control_plane)
@@ -83,9 +105,10 @@ def test_descriptives_frequencies_correlations_and_crosstab(tmp_path: Path) -> N
         assert frequencies.items[0].count == 3
 
         correlation = explore.correlation(
-            version_id, (columns["age"], columns["income"])
+            version_id,
+            (columns["age"], columns["income"]),
         )
-        assert correlation.matrix[0][1] == 1.0
+        assert correlation.matrix[0][1] == pytest.approx(1.0)
 
         table = explore.crosstab(
             version_id,
@@ -99,14 +122,19 @@ def test_descriptives_frequencies_correlations_and_crosstab(tmp_path: Path) -> N
         database.dispose()
 
 
-def test_visualization_payloads_are_bounded_and_chart_ready(tmp_path: Path) -> None:
+def test_visualization_payloads_are_bounded_and_chart_ready(
+    tmp_path: Path,
+) -> None:
     database, store, control_plane, ingestion, explore = _stack(tmp_path)
     try:
         version_id = _ingest(tmp_path, store, ingestion, control_plane)
         columns = _column_ids(control_plane, version_id)
 
         histogram = explore.visualization(
-            version_id, "histogram", columns["age"], bins=5
+            version_id,
+            "histogram",
+            columns["age"],
+            bins=5,
         )
         assert histogram.chart_type == "histogram"
         assert sum(item["count"] for item in histogram.data) == 5
@@ -121,17 +149,32 @@ def test_visualization_payloads_are_bounded_and_chart_ready(tmp_path: Path) -> N
         assert len(scatter.data) == 5
         assert all("x" in item and "y" in item for item in scatter.data)
 
-        box = explore.visualization(version_id, "box", columns["income"])
-        assert box.data[0]["values"] == [100.0, 200.0, 300.0, 400.0, 500.0]
+        box = explore.visualization(
+            version_id,
+            "box",
+            columns["income"],
+        )
+        assert box.data[0]["values"] == [
+            100.0,
+            200.0,
+            300.0,
+            400.0,
+            500.0,
+        ]
 
         qq = explore.visualization(
-            version_id, "qq", columns["age"], limit=100
+            version_id,
+            "qq",
+            columns["age"],
+            limit=100,
         )
         assert len(qq.data) == 5
         assert qq.metadata["sample_size"] == 5
 
         heatmap = explore.visualization(
-            version_id, "heatmap", columns["age"]
+            version_id,
+            "heatmap",
+            columns["age"],
         )
         assert heatmap.metadata["method"] == "pearson"
         assert len(heatmap.data) == 4
