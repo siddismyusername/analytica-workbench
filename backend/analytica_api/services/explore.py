@@ -615,11 +615,11 @@ class DatasetExploreService:
             x_identifier = _quote(x_column.physical_name)
             y_identifier = _quote(y_column.physical_name)
             rows = connection.execute(
-                f"SELECT {x_identifier}, {y_identifier} "
-                "FROM read_parquet(?) "
-                f"USING SAMPLE reservoir({limit} ROWS) "
+                "WITH filtered AS ("
+                f"SELECT {x_identifier}, {y_identifier} FROM read_parquet(?) "
                 f"WHERE {x_identifier} IS NOT NULL "
-                f"AND {y_identifier} IS NOT NULL",
+                f"AND {y_identifier} IS NOT NULL) "
+                f"SELECT * FROM filtered USING SAMPLE reservoir({limit} ROWS)",
                 [str(path)],
             ).fetchall()
         return VisualizationResult(
@@ -707,9 +707,10 @@ class DatasetExploreService:
             column = self._numeric_column(schema, column_id)
             identifier = _quote(column.physical_name)
             rows = connection.execute(
+                "WITH filtered AS ("
                 f"SELECT {identifier} FROM read_parquet(?) "
-                f"USING SAMPLE reservoir({limit} ROWS) "
-                f"WHERE {identifier} IS NOT NULL",
+                f"WHERE {identifier} IS NOT NULL) "
+                f"SELECT * FROM filtered USING SAMPLE reservoir({limit} ROWS)",
                 [str(path)],
             ).fetchall()
         sample = np.asarray([float(row[0]) for row in rows], dtype=float)
