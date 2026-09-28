@@ -12,13 +12,13 @@
 .resultCard,
 .detailCard,
 .chartCard {
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border);
   background: var(--surface-strong);
   box-shadow: var(--shadow-card);
 }
 
 .guide {
-  border-radius: 24px;
+  border-radius: var(--radius-panel);
   padding: 18px;
   align-self: start;
   position: sticky;
@@ -35,7 +35,7 @@
 .heading p,
 .canvasHeader p,
 .resultHeader p {
-  color: var(--text-muted);
+  color: var(--muted);
   line-height: 1.55;
 }
 
@@ -50,22 +50,27 @@
   appearance: none;
   border: 1px solid transparent;
   background: transparent;
-  color: inherit;
+  color: var(--text);
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+  transition: background-color var(--motion-standard) var(--ease-standard), border-color var(--motion-standard) var(--ease-standard), transform var(--motion-standard) var(--ease-standard);
 }
 
 .goalButton {
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   padding: 13px;
 }
 
 .goalButton:hover,
 .goalActive {
-  background: var(--surface-muted);
-  border-color: var(--border-subtle);
+  background: var(--content-subtle);
+  border-color: var(--border);
+}
+
+.goalButton:active,
+.testButton:active {
+  transform: translateY(1px);
 }
 
 .goalButton strong,
@@ -75,13 +80,13 @@
 
 .goalButton span {
   margin-top: 5px;
-  color: var(--text-muted);
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.45;
 }
 
 .canvas {
-  border-radius: 28px;
+  border-radius: var(--radius-shell);
   padding: 22px;
   min-width: 0;
 }
@@ -106,7 +111,7 @@
   display: inline-flex;
   align-items: center;
   white-space: nowrap;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 7px 10px;
   font-size: 11px;
   font-weight: 650;
@@ -114,15 +119,15 @@
 
 .versionBadge,
 .neutralBadge {
-  color: var(--text-muted);
-  background: var(--surface-muted);
-  border: 1px solid var(--border-subtle);
+  color: var(--muted);
+  background: var(--content-subtle);
+  border: 1px solid var(--border);
 }
 
 .evidenceBadge {
-  color: #166534;
-  background: color-mix(in srgb, #22c55e 12%, transparent);
-  border: 1px solid color-mix(in srgb, #22c55e 28%, transparent);
+  color: var(--success-text);
+  background: var(--success-soft);
+  border: 1px solid var(--success-border);
 }
 
 .error,
@@ -130,15 +135,16 @@
 .notice,
 .interpretation,
 .warningList {
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   padding: 12px 14px;
   font-size: 13px;
 }
 
 .error {
   margin-bottom: 14px;
-  border: 1px solid color-mix(in srgb, #ef4444 32%, transparent);
-  background: color-mix(in srgb, #ef4444 9%, transparent);
+  border: 1px solid var(--danger-border);
+  color: var(--danger-text);
+  background: var(--danger-soft);
 }
 
 .progress {
@@ -146,8 +152,8 @@
   gap: 9px;
   align-items: center;
   margin-bottom: 14px;
-  color: var(--text-muted);
-  background: var(--surface-muted);
+  color: var(--muted);
+  background: var(--content-subtle);
 }
 
 .progress span {
@@ -162,7 +168,7 @@
 .recommendationCard,
 .resultCard,
 .detailCard {
-  border-radius: 20px;
+  border-radius: var(--radius-panel);
   padding: 18px;
 }
 
@@ -177,7 +183,7 @@
 }
 
 .sectionHeading > span {
-  color: var(--text-muted);
+  color: var(--muted);
   font-size: 11px;
   text-align: right;
   max-width: 340px;
@@ -197,7 +203,7 @@
 
 .fields label > span,
 .alternativeField > span {
-  color: var(--text-muted);
+  color: var(--muted);
   font-size: 11px;
   font-weight: 600;
 }
@@ -206,32 +212,59 @@
 .fields input,
 .alternativeField select {
   width: 100%;
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  background: var(--surface-muted);
-  color: inherit;
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--content-subtle);
+  color: var(--text);
   padding: 10px 11px;
   font: inherit;
   font-size: 13px;
+  transition: border-color var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard), background-color var(--motion-fast) var(--ease-standard);
+}
+
+.fields select:hover,
+.fields input:hover,
+.alternativeField select:hover {
+  border-color: var(--border-strong);
+}
+
+.fields select:focus,
+.fields input:focus,
+.alternativeField select:focus {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border-strong));
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  outline: none;
 }
 
 .notice {
   margin-top: 12px;
-  color: var(--text-muted);
-  background: var(--surface-muted);
+  color: var(--muted);
+  background: var(--content-subtle);
+  border: 1px solid var(--border);
 }
 
 .primaryButton {
   margin-top: 14px;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   padding: 10px 14px;
-  background: var(--text-primary);
-  color: var(--surface-strong);
+  background: var(--accent-gradient);
+  color: var(--accent-contrast);
+  box-shadow: var(--accent-shadow);
   font: inherit;
   font-size: 12px;
   font-weight: 650;
   cursor: pointer;
+  transition: filter var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.primaryButton:hover:not(:disabled) {
+  filter: brightness(1.035);
+}
+
+.primaryButton:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .primaryButton:disabled {
@@ -246,15 +279,16 @@
 }
 
 .testButton {
-  border-color: var(--border-subtle);
-  border-radius: 16px;
+  border-color: var(--border);
+  border-radius: var(--radius-card);
   padding: 14px;
-  background: var(--surface-muted);
+  background: var(--content-subtle);
 }
 
 .testButton:hover,
 .testActive {
-  border-color: color-mix(in srgb, var(--text-primary) 32%, var(--border-subtle));
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background: color-mix(in srgb, var(--accent) 5%, var(--content-subtle));
   transform: translateY(-1px);
 }
 
@@ -266,17 +300,17 @@
 }
 
 .testButton > div span {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 4px 7px;
   background: var(--surface-strong);
-  color: var(--text-muted);
+  color: var(--muted);
   font-size: 10px;
 }
 
 .testButton p,
 .testButton small {
   display: block;
-  color: var(--text-muted);
+  color: var(--muted);
   line-height: 1.45;
 }
 
@@ -296,7 +330,7 @@
 
 .notes {
   margin-top: 12px;
-  color: var(--text-muted);
+  color: var(--muted);
   font-size: 11px;
 }
 
@@ -321,16 +355,16 @@
 
 .resultMetrics article {
   min-width: 0;
-  border: 1px solid var(--border-subtle);
-  border-radius: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
   padding: 13px;
-  background: var(--surface-muted);
+  background: var(--content-subtle);
 }
 
 .resultMetrics span,
 .resultMetrics small {
   display: block;
-  color: var(--text-muted);
+  color: var(--muted);
   font-size: 10px;
 }
 
@@ -341,12 +375,14 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
 }
 
 .interpretation {
   margin-top: 14px;
   line-height: 1.55;
-  background: var(--surface-muted);
+  background: var(--content-subtle);
+  border: 1px solid var(--border);
 }
 
 .detailCard {
@@ -367,8 +403,9 @@
 .tableWrap th,
 .tableWrap td {
   padding: 10px 11px;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border);
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .tableWrap th:first-child,
@@ -383,14 +420,14 @@
 }
 
 .diagnostic {
-  border: 1px solid var(--border-subtle);
-  border-radius: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
   padding: 13px;
-  background: var(--surface-muted);
+  background: var(--content-subtle);
 }
 
 .diagnostic[data-status="warning"] {
-  border-color: color-mix(in srgb, #f59e0b 38%, var(--border-subtle));
+  border-color: var(--warning-border);
 }
 
 .diagnostic > div {
@@ -402,7 +439,7 @@
 .diagnostic > div span,
 .diagnostic small,
 .diagnostic p {
-  color: var(--text-muted);
+  color: var(--muted);
   font-size: 11px;
 }
 
@@ -412,8 +449,9 @@
 
 .warningList {
   margin-top: 14px;
-  border: 1px solid color-mix(in srgb, #f59e0b 30%, var(--border-subtle));
-  background: color-mix(in srgb, #f59e0b 8%, transparent);
+  border: 1px solid var(--warning-border);
+  background: var(--warning-soft);
+  color: var(--warning-text);
 }
 
 .warningList p {
@@ -429,10 +467,11 @@
 }
 
 .chartCard {
-  border-radius: 20px;
+  border-radius: var(--radius-panel);
   min-width: 0;
   overflow: hidden;
   padding: 6px;
+  background: var(--content);
 }
 
 @keyframes pulse {
@@ -473,5 +512,14 @@
   .resultHeader {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress span,
+  .goalButton,
+  .testButton {
+    animation: none;
+    transition: none;
   }
 }
