@@ -1,0 +1,489 @@
+.layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 18px;
+  min-height: calc(100vh - 118px);
+}
+
+.columnRail,
+.canvas,
+.card,
+.chartTools,
+.chartCanvas {
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-card);
+}
+
+.columnRail {
+  border-radius: 24px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.railHeading,
+.cardHeader,
+.canvasHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.railHeading h2,
+.canvasHeader h2,
+.cardHeader h3,
+.chartTools h3 {
+  margin: 4px 0 0;
+}
+
+.railHeading > span,
+.cardHeader > span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.columnList {
+  margin-top: 16px;
+  display: grid;
+  gap: 8px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.columnButton {
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  border-radius: 16px;
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.columnButton:hover,
+.columnButtonActive {
+  background: var(--surface-muted);
+  border-color: var(--border-subtle);
+}
+
+.columnButton > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.columnButton strong {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.columnButton span,
+.columnButton small {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.columnButton small {
+  display: block;
+  margin-top: 6px;
+}
+
+.canvas {
+  border-radius: 28px;
+  padding: 22px;
+  min-width: 0;
+}
+
+.canvasHeader {
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.canvasHeader p {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+}
+
+.modeTabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--surface-muted);
+}
+
+.modeTabs button {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+
+.modeTabs button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.modeTabs .modeActive {
+  color: var(--text-primary);
+  background: var(--surface-strong);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 8%);
+}
+
+.error,
+.progress {
+  margin-bottom: 16px;
+  border-radius: 14px;
+  padding: 11px 13px;
+  font-size: 13px;
+}
+
+.error {
+  border: 1px solid color-mix(in srgb, #ef4444 32%, transparent);
+  background: color-mix(in srgb, #ef4444 9%, transparent);
+}
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+}
+
+.progress span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 900ms ease-in-out infinite alternate;
+}
+
+.metricGrid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metricGrid article {
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-muted);
+  border-radius: 16px;
+  padding: 13px;
+  min-width: 0;
+}
+
+.metricGrid span,
+.metricGrid small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.metricGrid strong {
+  display: block;
+  font-size: 18px;
+  margin: 7px 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.detailGrid {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 14px;
+}
+
+.card {
+  border-radius: 20px;
+  padding: 18px;
+  min-width: 0;
+}
+
+.cardHeader {
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.cardHeader button,
+.contextActions button {
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-muted);
+  color: inherit;
+  border-radius: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.statList {
+  margin: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.statList div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 20px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.statList dt {
+  color: var(--text-muted);
+}
+
+.statList dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.contextActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.frequencyTable,
+.matrixWrap {
+  overflow: auto;
+}
+
+.tableHead,
+.tableRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px 88px;
+  gap: 12px;
+  align-items: center;
+  min-height: 38px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 12px;
+}
+
+.tableHead {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.tableRow > span:first-child {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tableRow strong,
+.tableRow span:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.matrix,
+.crosstab {
+  border-collapse: separate;
+  border-spacing: 3px;
+  min-width: 100%;
+  font-size: 11px;
+}
+
+.matrix th,
+.crosstab th {
+  color: var(--text-muted);
+  font-weight: 500;
+  padding: 7px 9px;
+  white-space: nowrap;
+}
+
+.matrix td,
+.crosstab td {
+  min-width: 70px;
+  padding: 8px 10px;
+  text-align: right;
+  border-radius: 7px;
+  background: var(--surface-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.matrix td[data-strength="strong"] {
+  background: color-mix(in srgb, var(--accent) 28%, var(--surface-muted));
+}
+
+.matrix td[data-strength="medium"] {
+  background: color-mix(in srgb, var(--accent) 17%, var(--surface-muted));
+}
+
+.matrix td[data-strength="weak"] {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-muted));
+}
+
+.selectorRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.selectorRow label,
+.chartTools label {
+  display: grid;
+  gap: 6px;
+}
+
+.selectorRow span,
+.chartTools label span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.selectorRow select,
+.chartTools select {
+  min-height: 38px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-muted);
+  color: inherit;
+  padding: 0 10px;
+}
+
+.visualizationLayout {
+  display: grid;
+  grid-template-columns: 238px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.chartTools,
+.chartCanvas {
+  border-radius: 20px;
+  padding: 16px;
+}
+
+.chartTools {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
+.chartTypeGrid {
+  display: grid;
+  gap: 6px;
+}
+
+.chartTypeGrid button {
+  display: grid;
+  gap: 3px;
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  border-radius: 12px;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.chartTypeGrid button:hover,
+.chartTypeGrid .chartTypeActive {
+  background: var(--surface-muted);
+  border-color: var(--border-subtle);
+}
+
+.chartTypeGrid button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.chartTypeGrid span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.runButton {
+  border: 0;
+  border-radius: 11px;
+  min-height: 40px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.runButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chartCanvas {
+  min-height: 510px;
+  display: grid;
+  align-items: center;
+}
+
+.chartEmpty,
+.empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 6px;
+  min-height: 360px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.chartEmpty strong {
+  color: var(--text-primary);
+}
+
+@keyframes pulse {
+  from { opacity: 0.35; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1.05); }
+}
+
+@media (max-width: 1180px) {
+  .layout {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+  .metricGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .visualizationLayout {
+    grid-template-columns: 210px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .layout,
+  .visualizationLayout,
+  .detailGrid {
+    grid-template-columns: 1fr;
+  }
+  .columnRail {
+    max-height: 300px;
+  }
+  .canvasHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .modeTabs {
+    width: 100%;
+    overflow-x: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress span,
+  .columnButton {
+    animation: none;
+    transition: none;
+  }
+}

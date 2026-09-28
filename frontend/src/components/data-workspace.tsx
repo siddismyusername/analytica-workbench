@@ -2,6 +2,7 @@
 
 import { type CSSProperties, type DragEvent, useRef, useState } from "react";
 
+import { ExploreWorkspace } from "@/components/explore-workspace";
 import styles from "./prepare-workspace.module.css";
 import {
   type DatasetColumnProfile,
@@ -41,7 +42,7 @@ const PREPARE_TOOLS = [
 ] as const;
 
 type WorkspacePhase = "idle" | "uploading" | "processing" | "profiling" | "ready" | "error";
-type ActiveView = "Data" | "Prepare";
+type ActiveView = "Data" | "Prepare" | "Explore";
 type PrepareTool = (typeof PREPARE_TOOLS)[number][0];
 
 function sleep(milliseconds: number): Promise<void> {
@@ -495,9 +496,9 @@ export function DataWorkspace() {
       <aside className="sidebar glass-surface" aria-label="Primary navigation">
         <div className="brand-lockup"><div className="brand-mark">A</div><div><strong>Analytica</strong><span>Workbench</span></div></div>
         <nav>{WORKFLOW.map((item, index) => {
-          const available = item === "Data" || (item === "Prepare" && profile !== null);
+          const available = item === "Data" || ((item === "Prepare" || item === "Explore") && profile !== null);
           const active = item === activeView;
-          return <button className={active ? "nav-item active" : "nav-item"} key={item} type="button" disabled={!available} onClick={() => { if (item === "Data" || item === "Prepare") setActiveView(item); }}><span className="nav-index">0{index + 1}</span>{item}</button>;
+          return <button className={active ? "nav-item active" : "nav-item"} key={item} type="button" disabled={!available} onClick={() => { if (item === "Data" || item === "Prepare" || item === "Explore") setActiveView(item); }}><span className="nav-index">0{index + 1}</span>{item}</button>;
         })}</nav>
         <div className="sidebar-status"><span className="status-dot" />Immutable workspace</div>
       </aside>
@@ -506,7 +507,9 @@ export function DataWorkspace() {
         <header className="toolbar glass-surface"><div className="toolbar-title"><p className="eyebrow">Analytica Workbench · {activeView}</p><h1>{toolbarTitle}</h1></div><div className="toolbar-actions">{profile ? <span className="version-badge">Version {profile.version_number}</span> : null}<button type="button" onClick={() => inputRef.current?.click()} disabled={isBusy || prepareBusy}>Import data</button>{profile ? <button className="primary-action" type="button" onClick={resetWorkspace}>New analysis</button> : null}</div></header>
         <input className="visually-hidden" ref={inputRef} type="file" accept=".csv,.parquet,text/csv,application/vnd.apache.parquet" onChange={(event) => chooseFile(event.target.files?.item(0) ?? null)} />
 
-        {profile && preview ? (activeView === "Prepare" ? renderPrepareView() : renderDataView()) : (
+        {profile && preview ? (
+          activeView === "Prepare" ? renderPrepareView() : activeView === "Explore" ? <ExploreWorkspace profile={profile} /> : renderDataView()
+        ) : (
           <section className="import-surface" aria-labelledby="import-title">
             <div className="import-copy"><p className="eyebrow">Data workspace</p><h2 id="import-title">Start with the data, not the tooling.</h2><p>Upload CSV or Parquet. Analytica creates an immutable canonical dataset, profiles its quality, and opens a bounded analytical preview.</p></div>
             <div className={file ? "drop-zone has-file" : "drop-zone"} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
