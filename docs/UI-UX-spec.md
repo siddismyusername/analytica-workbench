@@ -4,7 +4,7 @@
 **Scope:** Browser application in `frontend/`  
 **Status:** Living source-of-truth  
 **Baseline:** Current Data, Prepare, Explore, Analyze, supervised Model, and Results implementation
-**Last reviewed:** 2026-09-28
+**Last reviewed:** 2026-09-29
 
 ---
 
@@ -124,7 +124,12 @@ Analytical content surfaces should be solid or near-solid.
 
 # 4. Current visual tokens
 
-The current token source is `frontend/src/app/globals.css`.
+The design-system implementation has two deliberate layers:
+
+- `frontend/src/app/globals.css` — base light/dark palette, canvas, glass materials, base radii, base shadows and the Data/shell primitives;
+- `frontend/src/app/design-system.css` — loaded font binding, semantic token aliases, accessible status roles, component-radius roles, spacing scale, shared action treatment and motion tokens.
+
+Workspace CSS modules must consume these declared tokens. New undeclared theme-token vocabularies are not permitted.
 
 ## 4.1 Light palette
 
@@ -144,9 +149,11 @@ The current token source is `frontend/src/app/globals.css`.
 | `--glass-border` | `rgba(255,255,255,.68)` | glass edge |
 | `--accent` | `#2563eb` | primary action/focus |
 | `--accent-soft` | `rgba(37,99,235,.10)` | selected/info tint |
-| `--warning` | `#c66a08` | warnings |
-| `--success` | `#15803d` | healthy/success |
+| `--warning` | `#c66a08` | warning indicator/graphic |
+| `--success` | `#15803d` | healthy/success indicator |
 | `--danger` | `#b42318` | error/destructive status |
+
+Semantic text/border roles in `design-system.css` shall be used when a status color carries readable text rather than decoration alone. Current light roles are `--success-text: #166534`, `--warning-text: #92400e`, `--danger-text: var(--danger)` plus their soft/border companions.
 
 ## 4.2 Dark palette
 
@@ -160,11 +167,14 @@ The application follows `prefers-color-scheme: dark`. Current principal values a
 - strong muted text: `#b8bec8`;
 - borders: low-opacity white;
 - glass surfaces: dark translucent grays;
-- accent remains blue with adjusted soft-alpha treatment.
+- accent remains blue with adjusted soft-alpha treatment;
+- status text roles shift to light readable values (`#86efac`, `#fcd34d`, `#fca5a5`).
 
 No screen may assume a light background when defining chart labels, borders or status text.
 
-## 4.3 Radius scale
+## 4.3 Radius scale and component roles
+
+Base scale:
 
 | Token | Value |
 | --- | ---: |
@@ -173,9 +183,17 @@ No screen may assume a light background when defining chart labels, borders or s
 | `--radius-lg` | `24px` |
 | `--radius-xl` | `30px` |
 
-Use small radii for controls, medium for cards, large/x-large for primary workspace surfaces.
+Component roles map to that scale:
 
-## 4.4 Shadows
+- `--radius-control` → `--radius-sm`;
+- `--radius-card` → `--radius-md`;
+- `--radius-panel` → `--radius-lg`;
+- `--radius-shell` → `--radius-xl`;
+- `--radius-pill` → `999px`.
+
+Use role tokens in workspace modules instead of introducing near-duplicate hardcoded radii.
+
+## 4.4 Shadows and primary actions
 
 Two principal elevation levels exist:
 
@@ -184,13 +202,15 @@ Two principal elevation levels exist:
 
 Dense analytical cards should not all use strong floating shadows. Borders and surface contrast should carry most hierarchy.
 
+Primary commit/advance actions share `--accent-gradient` and `--accent-shadow`. A workspace must not introduce a separate brand-blue value for the same primary-action meaning.
+
 ## 4.5 Typography
 
-The CSS font stack is currently:
+Inter is explicitly loaded in `frontend/src/app/layout.tsx` through `next/font/google` with `display: swap` and the variable `--font-inter`. `design-system.css` exposes the application stack as:
 
-`Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`
+`var(--font-inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`
 
-No Inter font asset is currently loaded by `layout.tsx`; therefore clients without Inter installed will use the system fallback. Until a bundled/web-loaded font is intentionally introduced, designs must be validated against the system fallback metrics as well.
+This makes Inter deterministic while preserving system fallbacks if font loading is unavailable.
 
 Current type character:
 
@@ -203,6 +223,8 @@ Current type character:
 
 Tabular numbers should use tabular numerals where repeated values must align.
 
+Charts inherit the rendered application font family and the active CSS color tokens at runtime. Chart code must not define a separate nonexistent font token or assume a light theme.
+
 ## 4.6 Eyebrow label
 
 The `.eyebrow` pattern is a small uppercase contextual label:
@@ -213,6 +235,19 @@ The `.eyebrow` pattern is a small uppercase contextual label:
 - semibold weight.
 
 Use it for context such as `Data workspace`, `Preview`, `Reproducibility`, `Result`, or `Immutable version 3`. It must not replace the main heading.
+
+## 4.7 Spacing and motion tokens
+
+Shared spacing values are exposed in `design-system.css` as `--space-1` through `--space-12` for the recurring `4px`-based intervals currently used by the product. Existing workspace-specific geometry may keep exact measured values where the layout requires them, but new component spacing should prefer the shared scale.
+
+Shared interaction motion is:
+
+- `--motion-fast: 140ms`;
+- `--motion-standard: 160ms`;
+- `--motion-progress: 220ms`;
+- `--ease-standard: ease`.
+
+Hover/selection motion should use those roles rather than introducing arbitrary durations.
 
 ---
 
@@ -540,7 +575,10 @@ Charts should:
 - avoid unnecessary 3D/decorative effects;
 - keep chart chrome subordinate to the data;
 - use bounded data payloads for performance;
-- remain interpretable in both light and dark color schemes.
+- remain interpretable in both light and dark color schemes;
+- derive font, text, muted, border, surface and accent colors from the live design-system tokens;
+- set animation duration to zero when `prefers-reduced-motion: reduce` is active;
+- update their rendered theme if the OS color-scheme preference changes while the chart is mounted.
 
 ---
 
@@ -703,7 +741,9 @@ Use three conceptual levels:
 - **Secondary:** valid supporting action (`Choose file`, `Preview`, pagination).
 - **Tertiary/ghost:** navigation, contextual actions, small utilities.
 
-Primary buttons currently use a blue vertical gradient and white text. Avoid multiple visually primary actions within one decision area.
+Primary buttons use the shared blue vertical gradient, white text and shared accent shadow. Avoid multiple visually primary actions within one decision area.
+
+Every enabled interactive button style shall define a meaningful hover response, preserve the global keyboard focus indicator, and avoid motion larger than the small press/selection translations already used by the system.
 
 ## 13.2 Disabled controls
 
@@ -716,6 +756,7 @@ Disabled controls use reduced opacity and non-interactive cursor behavior. They 
 - Focus uses accent border/ring treatment.
 - Validation copy should be close to the related controls when possible.
 - Type-specific values must not be silently accepted when invalid.
+- Hover may strengthen the control border without changing layout.
 
 ## 13.4 Badges/chips
 
@@ -751,15 +792,18 @@ Motion must be functional and restrained.
 
 Current behavior includes:
 
-- approximately `140–160ms` hover/selection transitions;
-- upload/progress width transitions;
+- `140ms` fast hover/control transitions;
+- `160ms` selection transitions;
+- `220ms` progress-width transitions;
 - small busy/pulse indicators;
+- ECharts animation around `260ms` when reduced motion is not requested;
 - no page-scale decorative animation requirement.
 
 When `prefers-reduced-motion: reduce` is active:
 
-- transitions and animations are effectively disabled;
-- spinner animation should stop or reduce to a static busy treatment;
+- global transitions and animations are effectively disabled;
+- workspace spinner/pulse animations stop;
+- chart animation duration becomes zero;
 - no information may depend on animation.
 
 ---
@@ -815,7 +859,7 @@ Current global focus treatment:
 - `2px` accent outline;
 - `3px` outline offset.
 
-No component may remove visible focus without supplying an equivalent or stronger replacement.
+No component may remove visible focus without supplying an equivalent or stronger replacement. Form controls that use an internal accent ring on `:focus` must still preserve a visible keyboard indication through the global `:focus-visible` treatment.
 
 ## 16.3 Semantics
 
@@ -833,7 +877,7 @@ Long-running progress and errors should be announced through appropriate live-re
 
 ## 16.5 Color/contrast
 
-Status colors must be accompanied by textual meaning. Before production release, both themes require a WCAG 2.2 AA contrast audit, including charts and disabled controls.
+Status colors must be accompanied by textual meaning. Status text shall use the dedicated semantic text roles rather than decorative status colors where normal-size copy is rendered. Both themes require WCAG 2.2 AA contrast for normal text, controls and chart labels.
 
 ## 16.6 Charts
 
@@ -890,8 +934,8 @@ The UI may use technical terminology when the terminology is the object the user
 | Explore query | local progress state | 422/404/network error | revise variables/retry |
 | Analyze recommendation | calculation state | validation error | revise roles/retry |
 | Analyze run | calculation state | invalid test/limit/error | revise config or move to future deferred path |
-| Model — planned | durable job progress | training failure | inspect config/retry |
-| Export — planned | generation progress | export failure | retry without losing source result |
+| Model | durable training-job progress | training failure | inspect config/retry |
+| Export | generation progress | export failure | retry without losing source result |
 
 ---
 
@@ -907,6 +951,8 @@ The UI may use technical terminology when the terminology is the object the user
 8. Do not add large permanent toolbars of rarely used controls; use contextual disclosure.
 9. Do not force desktop-density tables into tiny responsive cards that destroy row/column relationships.
 10. Keep visual emphasis proportional to analytical importance.
+11. Do not introduce undeclared CSS custom properties for theme, status, surface, typography, radius or motion roles.
+12. Do not hardcode alternate brand blues for primary actions; use the shared accent/action tokens.
 
 ---
 
@@ -914,12 +960,15 @@ The UI may use technical terminology when the terminology is the object the user
 
 | UI area | Primary source files |
 | --- | --- |
-| Global shell/tokens/Data | `src/app/globals.css`, `src/components/data-workspace.tsx` |
+| Global shell/base tokens/Data | `src/app/globals.css`, `src/components/data-workspace.tsx` |
+| Semantic design-system roles/font binding | `src/app/design-system.css`, `src/app/layout.tsx` |
 | Prepare | `src/components/data-workspace.tsx`, `src/components/prepare-workspace.module.css` |
 | Explore | `src/components/explore-workspace.tsx`, `src/components/explore-workspace.module.css` |
 | Charts | `src/components/explore-chart.tsx` |
 | Analyze | `src/components/analyze-workspace.tsx`, `src/components/analyze-workspace.module.css` |
-| Typed API clients | `src/lib/dataset-upload.ts`, `src/lib/prepare-api.ts`, `src/lib/explore-api.ts`, `src/lib/analyze-api.ts` |
+| Model | `src/components/model-workspace.tsx`, `src/components/model-workspace.module.css` |
+| Results | `src/components/results-workspace.tsx`, `src/components/results-workspace.module.css` |
+| Typed API clients | `src/lib/dataset-upload.ts`, `src/lib/prepare-api.ts`, `src/lib/explore-api.ts`, `src/lib/analyze-api.ts`, `src/lib/model-api.ts`, `src/lib/results-api.ts` |
 
 ---
 
