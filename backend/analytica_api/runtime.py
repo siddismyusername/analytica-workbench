@@ -6,6 +6,7 @@ from analytica_api.persistence.database import Database
 from analytica_api.persistence.unit_of_work import SqlAlchemyUnitOfWork
 from analytica_api.queue.contracts import JobQueue
 from analytica_api.queue.providers import InlineJobQueue, VercelJobQueue
+from analytica_api.services.analyze import DatasetAnalyzeService
 from analytica_api.services.control_plane import ControlPlaneService
 from analytica_api.services.explore import DatasetExploreService
 from analytica_api.services.ingestion import DatasetIngestionService
@@ -104,6 +105,14 @@ def get_profile_service() -> DatasetProfileService:
 @lru_cache(maxsize=1)
 def get_explore_service() -> DatasetExploreService:
     return DatasetExploreService(
+        control_plane=get_control_plane(),
+        artifact_store=get_artifact_store(),
+    )
+
+
+@lru_cache(maxsize=1)
+def get_analyze_service() -> DatasetAnalyzeService:
+    return DatasetAnalyzeService(
         control_plane=get_control_plane(),
         artifact_store=get_artifact_store(),
     )

@@ -1,0 +1,477 @@
+.layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 18px;
+  min-height: calc(100vh - 118px);
+}
+
+.guide,
+.canvas,
+.configCard,
+.recommendationCard,
+.resultCard,
+.detailCard,
+.chartCard {
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-card);
+}
+
+.guide {
+  border-radius: 24px;
+  padding: 18px;
+  align-self: start;
+  position: sticky;
+  top: 0;
+}
+
+.heading h2,
+.canvasHeader h2,
+.sectionHeading h3,
+.resultHeader h2 {
+  margin: 4px 0 0;
+}
+
+.heading p,
+.canvasHeader p,
+.resultHeader p {
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.goalList {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.goalButton,
+.testButton {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.goalButton {
+  border-radius: 16px;
+  padding: 13px;
+}
+
+.goalButton:hover,
+.goalActive {
+  background: var(--surface-muted);
+  border-color: var(--border-subtle);
+}
+
+.goalButton strong,
+.goalButton span {
+  display: block;
+}
+
+.goalButton span {
+  margin-top: 5px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.canvas {
+  border-radius: 28px;
+  padding: 22px;
+  min-width: 0;
+}
+
+.canvasHeader,
+.sectionHeading,
+.resultHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.canvasHeader {
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.versionBadge,
+.evidenceBadge,
+.neutralBadge {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.versionBadge,
+.neutralBadge {
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  border: 1px solid var(--border-subtle);
+}
+
+.evidenceBadge {
+  color: #166534;
+  background: color-mix(in srgb, #22c55e 12%, transparent);
+  border: 1px solid color-mix(in srgb, #22c55e 28%, transparent);
+}
+
+.error,
+.progress,
+.notice,
+.interpretation,
+.warningList {
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 13px;
+}
+
+.error {
+  margin-bottom: 14px;
+  border: 1px solid color-mix(in srgb, #ef4444 32%, transparent);
+  background: color-mix(in srgb, #ef4444 9%, transparent);
+}
+
+.progress {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  margin-bottom: 14px;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+}
+
+.progress span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 900ms ease-in-out infinite alternate;
+}
+
+.configCard,
+.recommendationCard,
+.resultCard,
+.detailCard {
+  border-radius: 20px;
+  padding: 18px;
+}
+
+.recommendationCard,
+.resultCard {
+  margin-top: 14px;
+}
+
+.sectionHeading {
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.sectionHeading > span {
+  color: var(--text-muted);
+  font-size: 11px;
+  text-align: right;
+  max-width: 340px;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.fields label,
+.alternativeField {
+  display: grid;
+  gap: 7px;
+}
+
+.fields label > span,
+.alternativeField > span {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.fields select,
+.fields input,
+.alternativeField select {
+  width: 100%;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--surface-muted);
+  color: inherit;
+  padding: 10px 11px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.notice {
+  margin-top: 12px;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+}
+
+.primaryButton {
+  margin-top: 14px;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: var(--text-primary);
+  color: var(--surface-strong);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.primaryButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.testGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.testButton {
+  border-color: var(--border-subtle);
+  border-radius: 16px;
+  padding: 14px;
+  background: var(--surface-muted);
+}
+
+.testButton:hover,
+.testActive {
+  border-color: color-mix(in srgb, var(--text-primary) 32%, var(--border-subtle));
+  transform: translateY(-1px);
+}
+
+.testButton > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.testButton > div span {
+  border-radius: 999px;
+  padding: 4px 7px;
+  background: var(--surface-strong);
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.testButton p,
+.testButton small {
+  display: block;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.testButton p {
+  margin: 8px 0 5px;
+  font-size: 12px;
+}
+
+.testButton small {
+  font-size: 10px;
+}
+
+.alternativeField {
+  margin-top: 12px;
+  max-width: 360px;
+}
+
+.notes {
+  margin-top: 12px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.notes p {
+  margin: 4px 0;
+}
+
+.resultHeader {
+  align-items: center;
+}
+
+.resultHeader p {
+  margin: 6px 0 0;
+}
+
+.resultMetrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.resultMetrics article {
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 13px;
+  background: var(--surface-muted);
+}
+
+.resultMetrics span,
+.resultMetrics small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.resultMetrics strong {
+  display: block;
+  margin: 7px 0 5px;
+  font-size: 17px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.interpretation {
+  margin-top: 14px;
+  line-height: 1.55;
+  background: var(--surface-muted);
+}
+
+.detailCard {
+  margin-top: 14px;
+  box-shadow: none;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.tableWrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.tableWrap th,
+.tableWrap td {
+  padding: 10px 11px;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: right;
+}
+
+.tableWrap th:first-child,
+.tableWrap td:first-child {
+  text-align: left;
+}
+
+.diagnosticGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.diagnostic {
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 13px;
+  background: var(--surface-muted);
+}
+
+.diagnostic[data-status="warning"] {
+  border-color: color-mix(in srgb, #f59e0b 38%, var(--border-subtle));
+}
+
+.diagnostic > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.diagnostic > div span,
+.diagnostic small,
+.diagnostic p {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.diagnostic p {
+  line-height: 1.5;
+}
+
+.warningList {
+  margin-top: 14px;
+  border: 1px solid color-mix(in srgb, #f59e0b 30%, var(--border-subtle));
+  background: color-mix(in srgb, #f59e0b 8%, transparent);
+}
+
+.warningList p {
+  margin: 4px 0;
+  line-height: 1.5;
+}
+
+.visualGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.chartCard {
+  border-radius: 20px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 6px;
+}
+
+@keyframes pulse {
+  from { opacity: 0.35; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 1180px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .guide {
+    position: static;
+  }
+
+  .goalList {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .resultMetrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .fields,
+  .testGrid,
+  .diagnosticGrid,
+  .visualGrid,
+  .goalList,
+  .resultMetrics {
+    grid-template-columns: 1fr;
+  }
+
+  .canvasHeader,
+  .sectionHeading,
+  .resultHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
