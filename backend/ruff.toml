@@ -3,3 +3,6 @@ line-length = 100
 
 [lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[lint.per-file-ignores]
+"analytica_api/services/analyze.py" = ["E501"]
