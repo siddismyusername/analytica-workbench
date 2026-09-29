@@ -1,32 +1,20 @@
+@layer app {
 :root {
-  color-scheme: light dark;
-  --background: #f2f4f7;
-  --background-deep: #e8ecf2;
-  --surface: rgba(255, 255, 255, 0.78);
-  --surface-strong: rgba(255, 255, 255, 0.94);
-  --content: #ffffff;
-  --content-subtle: #f8f9fb;
-  --text: #15171a;
-  --muted: #6b717b;
-  --muted-strong: #4d535d;
-  --border: rgba(15, 23, 42, 0.09);
-  --border-strong: rgba(15, 23, 42, 0.15);
-  --glass-border: rgba(255, 255, 255, 0.68);
-  --accent: #2563eb;
-  --accent-soft: rgba(37, 99, 235, 0.10);
-  --accent-contrast: #ffffff;
-  --warning: #c66a08;
-  --warning-soft: rgba(198, 106, 8, 0.09);
-  --success: #15803d;
-  --danger: #b42318;
-  --danger-soft: rgba(180, 35, 24, 0.08);
-  --radius-sm: 10px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
-  --radius-xl: 30px;
-  --shadow-float: 0 18px 50px rgba(31, 41, 55, 0.10);
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 28px rgba(15, 23, 42, 0.05);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --background-deep: var(--background);
+  --surface-strong: var(--surface);
+  --content: var(--surface);
+  --content-subtle: var(--surface-secondary);
+  --text: var(--foreground);
+  --muted-strong: var(--foreground);
+  --border-strong: var(--border);
+  --glass-border: var(--border);
+  --accent-contrast: var(--accent-foreground);
+  --shadow-float: 0 10px 32px color-mix(in srgb, var(--foreground) 8%, transparent);
+  --shadow-card: 0 2px 12px color-mix(in srgb, var(--foreground) 5%, transparent);
+  --radius-sm: var(--radius);
+  --radius-md: calc(var(--radius) * 1.5);
+  --radius-lg: calc(var(--radius) * 2);
+  --radius-xl: calc(var(--radius) * 2.5);
 }
 
 * {
@@ -41,10 +29,7 @@ body {
 
 body {
   min-width: 320px;
-  background:
-    radial-gradient(circle at 20% -10%, rgba(89, 126, 247, 0.12), transparent 32rem),
-    radial-gradient(circle at 88% 8%, rgba(147, 197, 253, 0.13), transparent 30rem),
-    linear-gradient(145deg, var(--background), var(--background-deep));
+  background: var(--background);
   color: var(--text);
 }
 
@@ -71,11 +56,10 @@ button:disabled {
 }
 
 .glass-surface {
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  background: var(--surface);
   border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-float);
-  backdrop-filter: blur(26px) saturate(145%);
-  -webkit-backdrop-filter: blur(26px) saturate(145%);
+
 }
 
 .sidebar {
@@ -260,9 +244,8 @@ button:disabled {
 }
 
 .primary-action {
-  padding: 9px 13px !important;
-  background: linear-gradient(180deg, #3474f3, #1d5dde) !important;
-  color: var(--accent-contrast) !important;
+  padding: 9px 13px;
+  color: var(--accent-contrast);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 5px 14px rgba(37, 99, 235, 0.20);
 }
 
@@ -899,31 +882,8 @@ button:disabled {
   outline-offset: 3px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0c0e12;
-    --background-deep: #11141a;
-    --surface: rgba(25, 28, 34, 0.78);
-    --surface-strong: rgba(31, 34, 41, 0.94);
-    --content: #15181d;
-    --content-subtle: #1b1f25;
-    --text: #f2f4f7;
-    --muted: #9299a4;
-    --muted-strong: #b8bec8;
-    --border: rgba(255, 255, 255, 0.08);
-    --border-strong: rgba(255, 255, 255, 0.14);
-    --glass-border: rgba(255, 255, 255, 0.12);
-    --accent-soft: rgba(70, 127, 246, 0.14);
-    --warning-soft: rgba(214, 128, 28, 0.12);
-    --danger-soft: rgba(228, 73, 62, 0.12);
-    --shadow-float: 0 20px 54px rgba(0, 0, 0, 0.34);
-    --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.02), 0 12px 30px rgba(0, 0, 0, 0.24);
-  }
-
-  .brand-mark {
-    background: linear-gradient(150deg, #f2f4f7, #cfd4dc);
-    color: #101216;
-  }
+.dark {
+  color-scheme: dark;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1058,4 +1018,6 @@ button:disabled {
   .column-profile-list {
     grid-template-columns: 1fr;
   }
+}
+
 }

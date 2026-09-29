@@ -3,6 +3,10 @@
 import { useMemo, useState } from "react";
 
 import { ExploreChart } from "@/components/explore-chart";
+import { Button, Input, Select } from "./ui-controls";
+
+import { DataTable } from "./data-table";
+
 import styles from "./analyze-workspace.module.css";
 import type { DatasetColumnProfile, DatasetProfile } from "@/lib/dataset-upload";
 import {
@@ -186,7 +190,7 @@ export function AnalyzeWorkspace({ profile }: { profile: DatasetProfile }) {
         </div>
         <div className={styles.goalList}>
           {GOALS.map((item) => (
-            <button
+            <Button
               type="button"
               className={`${styles.goalButton} ${goal === item.goal ? styles.goalActive : ""}`}
               key={item.goal}
@@ -194,7 +198,7 @@ export function AnalyzeWorkspace({ profile }: { profile: DatasetProfile }) {
             >
               <strong>{item.title}</strong>
               <span>{item.description}</span>
-            </button>
+            </Button>
           ))}
         </div>
       </aside>
@@ -221,64 +225,64 @@ export function AnalyzeWorkspace({ profile }: { profile: DatasetProfile }) {
             {goal !== "categorical_association" ? (
               <label>
                 <span>{goal === "one_sample" ? "Numeric variable" : "Outcome / primary variable"}</span>
-                <select value={outcomeColumnId} onChange={(event) => { setOutcomeColumnId(event.target.value); setRecommendations(null); setResult(null); }}>
+                <Select aria-label="Numeric or outcome variable" value={outcomeColumnId} onChange={(event) => { setOutcomeColumnId(event.target.value); setRecommendations(null); setResult(null); }}>
                   {numericColumns.map((column) => <option value={column.column_id} key={column.column_id}>{column.display_name} · {column.data_type}</option>)}
-                </select>
+                </Select>
               </label>
             ) : (
               <label>
                 <span>First categorical variable</span>
-                <select value={groupColumnId} onChange={(event) => { setGroupColumnId(event.target.value); setRecommendations(null); setResult(null); }}>
+                <Select aria-label="Categorical group variable" value={groupColumnId} onChange={(event) => { setGroupColumnId(event.target.value); setRecommendations(null); setResult(null); }}>
                   {categoricalColumns.map((column) => <option value={column.column_id} key={column.column_id}>{column.display_name}</option>)}
-                </select>
+                </Select>
               </label>
             )}
 
             {goal === "compare_groups" ? (
               <label>
                 <span>Independent group variable</span>
-                <select value={groupColumnId} onChange={(event) => { setGroupColumnId(event.target.value); setRecommendations(null); setResult(null); }}>
+                <Select aria-label="Categorical group variable" value={groupColumnId} onChange={(event) => { setGroupColumnId(event.target.value); setRecommendations(null); setResult(null); }}>
                   {categoricalColumns.map((column) => <option value={column.column_id} key={column.column_id}>{column.display_name} · {column.distinct_count.toLocaleString()} levels</option>)}
-                </select>
+                </Select>
               </label>
             ) : null}
 
             {goal === "compare_paired" || goal === "numeric_relationship" ? (
               <label>
                 <span>{goal === "compare_paired" ? "Second paired variable" : "Second numeric variable"}</span>
-                <select value={secondaryColumnId} onChange={(event) => { setSecondaryColumnId(event.target.value); setRecommendations(null); setResult(null); }}>
+                <Select aria-label="Second numeric variable" value={secondaryColumnId} onChange={(event) => { setSecondaryColumnId(event.target.value); setRecommendations(null); setResult(null); }}>
                   {numericColumns.map((column) => <option value={column.column_id} key={column.column_id}>{column.display_name} · {column.data_type}</option>)}
-                </select>
+                </Select>
               </label>
             ) : null}
 
             {goal === "categorical_association" ? (
               <label>
                 <span>Second categorical variable</span>
-                <select value={categorySecondId} onChange={(event) => { setCategorySecondId(event.target.value); setRecommendations(null); setResult(null); }}>
+                <Select aria-label="Second categorical variable" value={categorySecondId} onChange={(event) => { setCategorySecondId(event.target.value); setRecommendations(null); setResult(null); }}>
                   {categoricalColumns.map((column) => <option value={column.column_id} key={column.column_id}>{column.display_name}</option>)}
-                </select>
+                </Select>
               </label>
             ) : null}
 
             {goal === "one_sample" ? (
               <label>
                 <span>Reference mean</span>
-                <input value={referenceValue} inputMode="decimal" onChange={(event) => { setReferenceValue(event.target.value); setResult(null); }} />
+                <Input value={referenceValue} inputMode="decimal" onChange={(event) => { setReferenceValue(event.target.value); setResult(null); }} />
               </label>
             ) : null}
 
             <label>
               <span>Confidence level</span>
-              <select value={confidenceLevel} onChange={(event) => { setConfidenceLevel(Number(event.target.value)); setResult(null); }}>
+              <Select aria-label="Confidence level" value={confidenceLevel} onChange={(event) => { setConfidenceLevel(Number(event.target.value)); setResult(null); }}>
                 <option value={0.9}>90%</option>
                 <option value={0.95}>95%</option>
                 <option value={0.99}>99%</option>
-              </select>
+              </Select>
             </label>
           </div>
           {!configured ? <div className={styles.notice}>This dataset does not contain enough compatible columns for the selected question.</div> : null}
-          <button className={styles.primaryButton} type="button" disabled={busy || !configured} onClick={recommend}>Recommend tests</button>
+          <Button variant="primary" className={styles.primaryButton} type="button" disabled={busy || !configured} onClick={recommend}>Recommend tests</Button>
         </section>
 
         {recommendations ? (
@@ -289,7 +293,7 @@ export function AnalyzeWorkspace({ profile }: { profile: DatasetProfile }) {
             </div>
             <div className={styles.testGrid}>
               {recommendations.recommendations.map((item) => (
-                <button
+                <Button
                   type="button"
                   className={`${styles.testButton} ${selectedTestId === item.test_id ? styles.testActive : ""}`}
                   key={item.test_id}
@@ -298,20 +302,20 @@ export function AnalyzeWorkspace({ profile }: { profile: DatasetProfile }) {
                   <div><strong>{item.name}</strong>{item.preferred ? <span>Preferred</span> : null}</div>
                   <p>{item.rationale}</p>
                   <small>{item.assumptions.join(" · ")}</small>
-                </button>
+                </Button>
               ))}
             </div>
             {selectedTestId && DIRECTIONAL_TESTS.has(selectedTestId) ? (
               <label className={styles.alternativeField}>
                 <span>Alternative hypothesis</span>
-                <select value={alternative} onChange={(event) => { setAlternative(event.target.value as AnalysisAlternative); setResult(null); }}>
+                <Select aria-label="Alternative hypothesis" value={alternative} onChange={(event) => { setAlternative(event.target.value as AnalysisAlternative); setResult(null); }}>
                   <option value="two-sided">Two-sided</option>
                   <option value="less">Less than / negative association</option>
                   <option value="greater">Greater than / positive association</option>
-                </select>
+                </Select>
               </label>
             ) : null}
-            <button className={styles.primaryButton} type="button" disabled={busy || !selectedTestId} onClick={execute}>Run selected test</button>
+            <Button variant="primary" className={styles.primaryButton} type="button" disabled={busy || !selectedTestId} onClick={execute}>Run selected test</Button>
             <div className={styles.notes}>{recommendations.notes.map((note) => <p key={note}>{note}</p>)}</div>
           </section>
         ) : null}
@@ -350,7 +354,7 @@ function AnalysisResultView({ profile, result }: { profile: DatasetProfile; resu
       {result.group_summaries.length ? (
         <section className={styles.detailCard}>
           <div className={styles.sectionHeading}><div><p className="eyebrow">Descriptive context</p><h3>Group summaries</h3></div></div>
-          <div className={styles.tableWrap}><table><thead><tr><th>Group</th><th>n</th><th>Mean</th><th>Median</th><th>SD</th></tr></thead><tbody>{result.group_summaries.map((group) => <tr key={group.label}><th>{group.label}</th><td>{group.n.toLocaleString()}</td><td>{formatNumber(group.mean)}</td><td>{formatNumber(group.median)}</td><td>{formatNumber(group.stddev)}</td></tr>)}</tbody></table></div>
+          <div className={styles.tableWrap}><DataTable aria-label="Group summaries"><thead><tr><th>Group</th><th>n</th><th>Mean</th><th>Median</th><th>SD</th></tr></thead><tbody>{result.group_summaries.map((group) => <tr key={group.label}><th>{group.label}</th><td>{group.n.toLocaleString()}</td><td>{formatNumber(group.mean)}</td><td>{formatNumber(group.median)}</td><td>{formatNumber(group.stddev)}</td></tr>)}</tbody></DataTable></div>
         </section>
       ) : null}
 

@@ -1,3 +1,4 @@
+@layer app {
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 330px;
@@ -244,9 +245,7 @@
 .primary {
   border: 0;
   border-radius: var(--radius-control);
-  background: var(--accent-gradient);
   color: var(--accent-contrast);
-  box-shadow: var(--accent-shadow);
   padding: 12px 16px;
   width: 100%;
   font: inherit;
@@ -347,4 +346,6 @@
   .heading button {
     margin-top: 8px;
   }
+}
+
 }

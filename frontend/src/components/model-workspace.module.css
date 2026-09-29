@@ -1,3 +1,4 @@
+@layer app {
 .layout {
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);
@@ -112,9 +113,7 @@
   border: 0;
   border-radius: var(--radius-control);
   padding: 12px 16px;
-  background: var(--accent-gradient);
   color: var(--accent-contrast);
-  box-shadow: var(--accent-shadow);
   font: inherit;
   font-weight: 700;
   cursor: pointer;
@@ -312,4 +311,6 @@
   .summary {
     grid-template-columns: 1fr;
   }
+}
+
 }

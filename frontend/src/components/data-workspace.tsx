@@ -1,11 +1,16 @@
 "use client";
 
 import { type CSSProperties, type DragEvent, useEffect, useRef, useState } from "react";
+import { Card } from "@heroui/react";
 
 import { AnalyzeWorkspace } from "@/components/analyze-workspace";
 import { ExploreWorkspace } from "@/components/explore-workspace";
 import { ModelWorkspace } from "@/components/model-workspace";
 import { ResultsWorkspace } from "@/components/results-workspace";
+import { Button, Input, Select } from "./ui-controls";
+
+import { DataTable } from "./data-table";
+
 import styles from "./prepare-workspace.module.css";
 import {
   type DatasetColumnProfile,
@@ -174,8 +179,8 @@ function DataPreviewGrid({
         <div><p className="eyebrow">Preview</p><h3>Data grid</h3></div>
         <div className="preview-pagination" aria-label="Preview pagination">
           <span>{shownStart.toLocaleString()}–{shownEnd.toLocaleString()} of {rowCount.toLocaleString()}</span>
-          <button type="button" disabled={!hasPrevious || loading} onClick={() => onPageChange(Math.max(0, preview.offset - PREVIEW_PAGE_SIZE))}>Previous</button>
-          <button type="button" disabled={!hasNext || loading} onClick={() => onPageChange(preview.offset + PREVIEW_PAGE_SIZE)}>Next</button>
+          <Button type="button" disabled={!hasPrevious || loading} onClick={() => onPageChange(Math.max(0, preview.offset - PREVIEW_PAGE_SIZE))}>Previous</Button>
+          <Button type="button" disabled={!hasNext || loading} onClick={() => onPageChange(preview.offset + PREVIEW_PAGE_SIZE)}>Next</Button>
         </div>
       </div>
       <div className="data-grid-scroll" style={{ height: VIEWPORT_HEIGHT }} onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}>
@@ -215,7 +220,7 @@ function TransformPreviewTable({ preview }: { preview: TransformPreview }) {
         <span>First {preview.rows.length.toLocaleString()} rows</span>
       </div>
       <div className={styles.previewScroll}>
-        <table className={styles.previewTable}>
+        <DataTable aria-label="Result sample" className={styles.previewTable}>
           <thead><tr>{preview.columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>
           <tbody>
             {preview.rows.map((row, rowIndex) => (
@@ -226,7 +231,7 @@ function TransformPreviewTable({ preview }: { preview: TransformPreview }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </DataTable>
       </div>
     </>
   );
@@ -504,10 +509,10 @@ export function DataWorkspace() {
           <div className="health-chip"><span className={profile.warnings.length === 0 ? "health-dot healthy" : "health-dot"} />{profile.warnings.length === 0 ? "No quality warnings" : `${profile.warnings.length} quality warning${profile.warnings.length === 1 ? "" : "s"}`}</div>
         </div>
         <div className="metric-grid" aria-label="Dataset summary">
-          <article className="metric-card"><span>Rows</span><strong>{profile.row_count.toLocaleString()}</strong></article>
-          <article className="metric-card"><span>Columns</span><strong>{profile.column_count.toLocaleString()}</strong></article>
-          <article className="metric-card"><span>Missing cells</span><strong>{profile.missing_percentage.toFixed(2)}%</strong><small>{profile.missing_cells.toLocaleString()} cells</small></article>
-          <article className="metric-card"><span>Duplicate rows</span><strong>{profile.duplicate_percentage.toFixed(2)}%</strong><small>{profile.duplicate_rows.toLocaleString()} rows</small></article>
+          <Card className="metric-card"><span>Rows</span><strong>{profile.row_count.toLocaleString()}</strong></Card>
+          <Card className="metric-card"><span>Columns</span><strong>{profile.column_count.toLocaleString()}</strong></Card>
+          <Card className="metric-card"><span>Missing cells</span><strong>{profile.missing_percentage.toFixed(2)}%</strong><small>{profile.missing_cells.toLocaleString()} cells</small></Card>
+          <Card className="metric-card"><span>Duplicate rows</span><strong>{profile.duplicate_percentage.toFixed(2)}%</strong><small>{profile.duplicate_rows.toLocaleString()} rows</small></Card>
         </div>
         <div className="workspace-grid">
           <DataPreviewGrid preview={preview} rowCount={profile.row_count} loading={previewLoading} onPageChange={loadPreview} />
@@ -529,16 +534,16 @@ export function DataWorkspace() {
       <section className={styles.layout} aria-label="Prepare workspace">
         <aside className={styles.panel}>
           <div className={styles.heading}><p className="eyebrow">Prepare</p><h2>Transform data</h2></div>
-          <div className={styles.toolList}>{PREPARE_TOOLS.map(([type, label, description]) => <button type="button" className={`${styles.toolButton} ${tool === type ? styles.toolButtonActive : ""}`} key={type} onClick={() => { setTool(type); invalidateTransformPreview(); }}><strong>{label}</strong><span>{description}</span></button>)}</div>
+          <div className={styles.toolList}>{PREPARE_TOOLS.map(([type, label, description]) => <Button type="button" className={`${styles.toolButton} ${tool === type ? styles.toolButtonActive : ""}`} key={type} onClick={() => { setTool(type); invalidateTransformPreview(); }}><strong>{label}</strong><span>{description}</span></Button>)}</div>
           <div className={styles.config}>
-            {tool !== "deduplicate" ? <label className={styles.field}><span>Column</span><select value={selectedColumn?.column_id ?? ""} onChange={(event) => { setSelectedColumnId(event.target.value); invalidateTransformPreview(); }}>{profile.columns.map((column) => <option value={column.column_id} key={column.column_id}>{column.display_name} · {column.data_type}</option>)}</select></label> : null}
-            {tool === "fill_null" ? <label className={styles.field}><span>Replacement value</span><input value={rawValue} onChange={(event) => { setRawValue(event.target.value); invalidateTransformPreview(); }} placeholder={selectedColumn?.data_type === "boolean" ? "true or false" : "Value"} /></label> : null}
-            {tool === "filter" ? <><label className={styles.field}><span>Condition</span><select value={filterOperator} onChange={(event) => { setFilterOperator(event.target.value as FilterOperator); invalidateTransformPreview(); }}><option value="eq">equals</option><option value="neq">does not equal</option><option value="gt">greater than</option><option value="gte">greater than or equal</option><option value="lt">less than</option><option value="lte">less than or equal</option><option value="is_null">is missing</option><option value="not_null">is not missing</option></select></label>{!nullOperator ? <label className={styles.field}><span>Value</span><input value={rawValue} onChange={(event) => { setRawValue(event.target.value); invalidateTransformPreview(); }} /></label> : null}</> : null}
-            {tool === "cast_column" ? <label className={styles.field}><span>Target type</span><select value={targetType} onChange={(event) => { setTargetType(event.target.value as typeof targetType); invalidateTransformPreview(); }}><option value="string">String</option><option value="integer">Integer</option><option value="float">Float</option><option value="boolean">Boolean</option><option value="date">Date</option><option value="datetime">Datetime</option></select></label> : null}
-            {tool === "rename_column" ? <label className={styles.field}><span>New name</span><input value={newName} maxLength={255} onChange={(event) => { setNewName(event.target.value); invalidateTransformPreview(); }} /></label> : null}
+            {tool !== "deduplicate" ? <label className={styles.field}><span>Column</span><Select aria-label="Column" value={selectedColumn?.column_id ?? ""} onChange={(event) => { setSelectedColumnId(event.target.value); invalidateTransformPreview(); }}>{profile.columns.map((column) => <option value={column.column_id} key={column.column_id}>{column.display_name} · {column.data_type}</option>)}</Select></label> : null}
+            {tool === "fill_null" ? <label className={styles.field}><span>Replacement value</span><Input value={rawValue} onChange={(event) => { setRawValue(event.target.value); invalidateTransformPreview(); }} placeholder={selectedColumn?.data_type === "boolean" ? "true or false" : "Value"} /></label> : null}
+            {tool === "filter" ? <><label className={styles.field}><span>Condition</span><Select aria-label="Filter condition" value={filterOperator} onChange={(event) => { setFilterOperator(event.target.value as FilterOperator); invalidateTransformPreview(); }}><option value="eq">equals</option><option value="neq">does not equal</option><option value="gt">greater than</option><option value="gte">greater than or equal</option><option value="lt">less than</option><option value="lte">less than or equal</option><option value="is_null">is missing</option><option value="not_null">is not missing</option></Select></label>{!nullOperator ? <label className={styles.field}><span>Value</span><Input value={rawValue} onChange={(event) => { setRawValue(event.target.value); invalidateTransformPreview(); }} /></label> : null}</> : null}
+            {tool === "cast_column" ? <label className={styles.field}><span>Target type</span><Select aria-label="Target data type" value={targetType} onChange={(event) => { setTargetType(event.target.value as typeof targetType); invalidateTransformPreview(); }}><option value="string">String</option><option value="integer">Integer</option><option value="float">Float</option><option value="boolean">Boolean</option><option value="date">Date</option><option value="datetime">Datetime</option></Select></label> : null}
+            {tool === "rename_column" ? <label className={styles.field}><span>New name</span><Input value={newName} maxLength={255} onChange={(event) => { setNewName(event.target.value); invalidateTransformPreview(); }} /></label> : null}
             {tool === "deduplicate" ? <p className="dataset-meta">All columns are considered. One copy of each identical row will remain.</p> : null}
             {tool === "drop_columns" ? <p className="dataset-meta">The column is removed only from the next version. Earlier versions remain intact.</p> : null}
-            <div className={styles.actions}><button type="button" onClick={previewOperation} disabled={prepareBusy}>Preview</button><button className={styles.applyButton} type="button" onClick={commitOperation} disabled={prepareBusy || !previewedOperation}>Apply</button></div>
+            <div className={styles.actions}><Button type="button" onClick={previewOperation} disabled={prepareBusy}>Preview</Button><Button variant="primary" className={styles.applyButton} type="button" onClick={commitOperation} disabled={prepareBusy || !previewedOperation}>Apply</Button></div>
             {prepareBusy ? <span className={styles.busy}>Working</span> : null}
           </div>
         </aside>
@@ -551,8 +556,8 @@ export function DataWorkspace() {
 
         <aside className={`${styles.panel} ${styles.historyPanel}`}>
           <div className={styles.heading}><p className="eyebrow">Reproducibility</p><h3>Operation history</h3></div>
-          <div className={styles.originalVersion}><span>Original imported version</span><button className={styles.versionButton} type="button" disabled={prepareBusy || originalVersionId === profile.version_id} onClick={() => openVersion(originalVersionId)}>Open</button></div>
-          <div className={styles.historyList}>{history.length === 0 ? <p className="dataset-meta">No transformations applied yet.</p> : history.map((item) => <article className={styles.historyItem} key={item.job_id}><div className={styles.historyTop}><strong>Version {item.output_version_number}</strong><span>{item.operation.type.replaceAll("_", " ")}</span></div><p>{operationSummary(item.operation)}</p><button className={styles.historyButton} type="button" disabled={prepareBusy || item.output_version_id === profile.version_id} onClick={() => openVersion(item.output_version_id)}>Open version</button></article>)}</div>
+          <div className={styles.originalVersion}><span>Original imported version</span><Button className={styles.versionButton} type="button" disabled={prepareBusy || originalVersionId === profile.version_id} onClick={() => openVersion(originalVersionId)}>Open</Button></div>
+          <div className={styles.historyList}>{history.length === 0 ? <p className="dataset-meta">No transformations applied yet.</p> : history.map((item) => <article className={styles.historyItem} key={item.job_id}><div className={styles.historyTop}><strong>Version {item.output_version_number}</strong><span>{item.operation.type.replaceAll("_", " ")}</span></div><p>{operationSummary(item.operation)}</p><Button className={styles.historyButton} type="button" disabled={prepareBusy || item.output_version_id === profile.version_id} onClick={() => openVersion(item.output_version_id)}>Open version</Button></article>)}</div>
         </aside>
       </section>
     );
@@ -565,13 +570,13 @@ export function DataWorkspace() {
         <nav>{WORKFLOW.map((item, index) => {
           const available = item === "Data" || profile !== null;
           const active = item === activeView;
-          return <button className={active ? "nav-item active" : "nav-item"} key={item} type="button" disabled={!available} onClick={() => setActiveView(item)}><span className="nav-index">0{index + 1}</span>{item}</button>;
+          return <Button variant="ghost" className={active ? "nav-item active" : "nav-item"} key={item} type="button" disabled={!available} onClick={() => setActiveView(item)}><span className="nav-index">0{index + 1}</span>{item}</Button>;
         })}</nav>
         <div className="sidebar-status"><span className="status-dot" />Immutable workspace</div>
       </aside>
 
       <section className="workspace">
-        <header className="toolbar glass-surface"><div className="toolbar-title"><p className="eyebrow">Analytica Workbench · {activeView}</p><h1>{toolbarTitle}</h1></div><div className="toolbar-actions">{profile ? <span className="version-badge">Version {profile.version_number}</span> : null}<button type="button" onClick={() => inputRef.current?.click()} disabled={isBusy || prepareBusy}>Import data</button>{profile ? <button className="primary-action" type="button" onClick={resetWorkspace}>New analysis</button> : null}</div></header>
+        <header className="toolbar glass-surface"><div className="toolbar-title"><p className="eyebrow">Analytica Workbench · {activeView}</p><h1>{toolbarTitle}</h1></div><div className="toolbar-actions">{profile ? <span className="version-badge">Version {profile.version_number}</span> : null}<Button type="button" onClick={() => inputRef.current?.click()} disabled={isBusy || prepareBusy}>Import data</Button>{profile ? <Button variant="primary" className="primary-action" type="button" onClick={resetWorkspace}>New analysis</Button> : null}</div></header>
         <input className="visually-hidden" ref={inputRef} type="file" accept=".csv,.parquet,text/csv,application/vnd.apache.parquet" onChange={(event) => chooseFile(event.target.files?.item(0) ?? null)} />
 
         {profile && preview ? (
@@ -581,11 +586,11 @@ export function DataWorkspace() {
             <div className="import-copy"><p className="eyebrow">Data workspace</p><h2 id="import-title">Start with the data, not the tooling.</h2><p>Upload CSV or Parquet. Analytica creates an immutable canonical dataset, profiles its quality, and opens a bounded analytical preview.</p></div>
             <div className={file ? "drop-zone has-file" : "drop-zone"} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
               <div className="drop-zone-icon" aria-hidden="true">↑</div>
-              {file ? <><div className="selected-file-row"><div><strong>{file.name}</strong><span>{formatBytes(file.size)}</span></div><button type="button" onClick={() => inputRef.current?.click()} disabled={isBusy}>Replace</button></div><label className="dataset-name-field"><span>Dataset name</span><input value={datasetName} maxLength={255} onChange={(event) => setDatasetName(event.target.value)} disabled={isBusy} /></label><button className="primary-action start-analysis-button" type="button" onClick={startAnalysis} disabled={isBusy || !datasetName.trim()}>{isBusy ? "Preparing dataset…" : "Open data workspace"}</button></> : <><strong>Drop a dataset here</strong><span>CSV or Parquet</span><button className="secondary-action" type="button" onClick={() => inputRef.current?.click()}>Choose file</button></>}
+              {file ? <><div className="selected-file-row"><div><strong>{file.name}</strong><span>{formatBytes(file.size)}</span></div><Button type="button" onClick={() => inputRef.current?.click()} disabled={isBusy}>Replace</Button></div><label className="dataset-name-field"><span>Dataset name</span><Input value={datasetName} maxLength={255} onChange={(event) => setDatasetName(event.target.value)} disabled={isBusy} /></label><Button variant="primary" className="primary-action start-analysis-button" type="button" onClick={startAnalysis} disabled={isBusy || !datasetName.trim()}>{isBusy ? "Preparing dataset…" : "Open data workspace"}</Button></> : <><strong>Drop a dataset here</strong><span>CSV or Parquet</span><Button variant="primary" className="secondary-action" type="button" onClick={() => inputRef.current?.click()}>Choose file</Button></>}
             </div>
             {isBusy ? <div className="processing-card" aria-live="polite"><div className="processing-copy"><div><p className="eyebrow">In progress</p><strong>{phaseLabel(phase, ingestion)}</strong></div><span>{phase === "uploading" ? `${uploadProgress}%` : ingestion?.status ?? "working"}</span></div><div className="progress-track" aria-hidden="true"><span style={{ width: phase === "uploading" ? `${uploadProgress}%` : phase === "processing" ? "72%" : "92%" }} /></div><div className="stage-row"><span className="complete">Upload</span><span className={phase === "processing" || phase === "profiling" ? "complete" : ""}>Ingest</span><span className={phase === "profiling" ? "complete" : ""}>Profile</span></div></div> : null}
-            {error ? <div className="error-banner" role="alert"><strong>Could not prepare this dataset.</strong><span>{error}</span><button type="button" onClick={() => setPhase("idle")}>Try again</button></div> : null}
-            {restoreError ? <div className="error-banner" role="alert"><strong>Could not reopen your last dataset.</strong><span>{restoreError}</span><button type="button" onClick={() => window.location.reload()}>Retry</button></div> : null}
+            {error ? <div className="error-banner" role="alert"><strong>Could not prepare this dataset.</strong><span>{error}</span><Button type="button" onClick={() => setPhase("idle")}>Try again</Button></div> : null}
+            {restoreError ? <div className="error-banner" role="alert"><strong>Could not reopen your last dataset.</strong><span>{restoreError}</span><Button type="button" onClick={() => window.location.reload()}>Retry</Button></div> : null}
             <div className="import-footnotes"><span>Direct-to-storage upload</span><span>Immutable canonical Parquet</span><span>Reproducible dataset versions</span></div>
           </section>
         )}

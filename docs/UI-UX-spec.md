@@ -122,132 +122,15 @@ Analytical content surfaces should be solid or near-solid.
 
 ---
 
-# 4. Current visual tokens
+# 4. HeroUI design system
 
-The design-system implementation has two deliberate layers:
+HeroUI v3 is the source of theme colors, component variants, interaction states, and form and table styling. The frontend imports `@heroui/styles/css` and uses `@heroui/react` components for buttons, inputs, selects, checkboxes, cards, and analytical tables. Tailwind CSS v4 builds the library styles. `next-themes` applies HeroUI's light or dark theme according to the operating system.
 
-- `frontend/src/app/globals.css` — base light/dark palette, canvas, glass materials, base radii, base shadows and the Data/shell primitives;
-- `frontend/src/app/design-system.css` — loaded font binding, semantic token aliases, accessible status roles, component-radius roles, spacing scale, shared action treatment and motion tokens.
+The app's CSS defines the workspace layout and specialist analytical presentation. It is placed in the `app` cascade layer, after HeroUI's base styles and before HeroUI component styles, so the library retains ownership of control appearance. `globals.css` bridges older workspace variables such as `--text`, `--content`, and `--content-subtle` to HeroUI's `--foreground`, `--surface`, and `--surface-secondary`. Workspace modules should use these semantic colors and avoid fixed light or dark values.
 
-Workspace CSS modules must consume these declared tokens. New undeclared theme-token vocabularies are not permitted.
+HeroUI `primary` marks the main commit or advance action in each decision area. Supporting actions use `tertiary`; navigation uses `ghost`. The library supplies disabled, hover, focus, and pressed states. Custom CSS should add layout only where necessary. Data grids with viewport virtualization remain specialist views and use HeroUI theme tokens; bounded analytical tables use HeroUI Table.
 
-## 4.1 Light palette
-
-| Token | Current value | Intended use |
-| --- | --- | --- |
-| `--background` | `#f2f4f7` | app canvas |
-| `--background-deep` | `#e8ecf2` | canvas gradient depth |
-| `--surface` | `rgba(255,255,255,.78)` | glass chrome |
-| `--surface-strong` | `rgba(255,255,255,.94)` | elevated near-solid surface |
-| `--content` | `#ffffff` | analytical cards/tables |
-| `--content-subtle` | `#f8f9fb` | secondary analytical surface |
-| `--text` | `#15171a` | primary text |
-| `--muted` | `#6b717b` | secondary labels |
-| `--muted-strong` | `#4d535d` | secondary readable copy |
-| `--border` | `rgba(15,23,42,.09)` | subtle separators |
-| `--border-strong` | `rgba(15,23,42,.15)` | controls/emphasis |
-| `--glass-border` | `rgba(255,255,255,.68)` | glass edge |
-| `--accent` | `#2563eb` | primary action/focus |
-| `--accent-soft` | `rgba(37,99,235,.10)` | selected/info tint |
-| `--warning` | `#c66a08` | warning indicator/graphic |
-| `--success` | `#15803d` | healthy/success indicator |
-| `--danger` | `#b42318` | error/destructive status |
-
-Semantic text/border roles in `design-system.css` shall be used when a status color carries readable text rather than decoration alone. Current light roles are `--success-text: #166534`, `--warning-text: #92400e`, `--danger-text: var(--danger)` plus their soft/border companions.
-
-## 4.2 Dark palette
-
-The application follows `prefers-color-scheme: dark`. Current principal values are:
-
-- app canvas: `#0c0e12` → `#11141a`;
-- content: `#15181d`;
-- subtle content: `#1b1f25`;
-- primary text: `#f2f4f7`;
-- muted text: `#9299a4`;
-- strong muted text: `#b8bec8`;
-- borders: low-opacity white;
-- glass surfaces: dark translucent grays;
-- accent remains blue with adjusted soft-alpha treatment;
-- status text roles shift to light readable values (`#86efac`, `#fcd34d`, `#fca5a5`).
-
-No screen may assume a light background when defining chart labels, borders or status text.
-
-## 4.3 Radius scale and component roles
-
-Base scale:
-
-| Token | Value |
-| --- | ---: |
-| `--radius-sm` | `10px` |
-| `--radius-md` | `16px` |
-| `--radius-lg` | `24px` |
-| `--radius-xl` | `30px` |
-
-Component roles map to that scale:
-
-- `--radius-control` → `--radius-sm`;
-- `--radius-card` → `--radius-md`;
-- `--radius-panel` → `--radius-lg`;
-- `--radius-shell` → `--radius-xl`;
-- `--radius-pill` → `999px`.
-
-Use role tokens in workspace modules instead of introducing near-duplicate hardcoded radii.
-
-## 4.4 Shadows and primary actions
-
-Two principal elevation levels exist:
-
-- `--shadow-card` — restrained card separation;
-- `--shadow-float` — stronger elevation for glass navigation/control chrome.
-
-Dense analytical cards should not all use strong floating shadows. Borders and surface contrast should carry most hierarchy.
-
-Primary commit/advance actions share `--accent-gradient` and `--accent-shadow`. A workspace must not introduce a separate brand-blue value for the same primary-action meaning.
-
-## 4.5 Typography
-
-Inter is explicitly loaded in `frontend/src/app/layout.tsx` through `next/font/google` with `display: swap` and the variable `--font-inter`. `design-system.css` exposes the application stack as:
-
-`var(--font-inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`
-
-This makes Inter deterministic while preserving system fallbacks if font loading is unavailable.
-
-Current type character:
-
-- compact UI labels: `9–12px`;
-- navigation/body controls: `11–13px`;
-- toolbar title: `15px`;
-- card/workspace headings: approximately `18–23px`;
-- dataset heading: responsive `26–42px`;
-- import hero: responsive `38–70px` with tight leading and negative tracking.
-
-Tabular numbers should use tabular numerals where repeated values must align.
-
-Charts inherit the rendered application font family and the active CSS color tokens at runtime. Chart code must not define a separate nonexistent font token or assume a light theme.
-
-## 4.6 Eyebrow label
-
-The `.eyebrow` pattern is a small uppercase contextual label:
-
-- roughly `10px`;
-- increased tracking;
-- muted color;
-- semibold weight.
-
-Use it for context such as `Data workspace`, `Preview`, `Reproducibility`, `Result`, or `Immutable version 3`. It must not replace the main heading.
-
-## 4.7 Spacing and motion tokens
-
-Shared spacing values are exposed in `design-system.css` as `--space-1` through `--space-12` for the recurring `4px`-based intervals currently used by the product. Existing workspace-specific geometry may keep exact measured values where the layout requires them, but new component spacing should prefer the shared scale.
-
-Shared interaction motion is:
-
-- `--motion-fast: 140ms`;
-- `--motion-standard: 160ms`;
-- `--motion-progress: 220ms`;
-- `--ease-standard: ease`.
-
-Hover/selection motion should use those roles rather than introducing arbitrary durations.
+Typography keeps the app's Inter font binding. The workspace spacing and panel radius aliases remain in `design-system.css`. Shadows separate surfaces gently, while dense tables and charts stay solid and legible.
 
 ---
 
@@ -741,7 +624,7 @@ Use three conceptual levels:
 - **Secondary:** valid supporting action (`Choose file`, `Preview`, pagination).
 - **Tertiary/ghost:** navigation, contextual actions, small utilities.
 
-Primary buttons use the shared blue vertical gradient, white text and shared accent shadow. Avoid multiple visually primary actions within one decision area.
+Use the HeroUI `primary` button variant for commit and advance actions. Avoid multiple visually primary actions within one decision area.
 
 Every enabled interactive button style shall define a meaningful hover response, preserve the global keyboard focus indicator, and avoid motion larger than the small press/selection translations already used by the system.
 
@@ -752,8 +635,8 @@ Disabled controls use reduced opacity and non-interactive cursor behavior. They 
 ## 13.3 Form fields
 
 - Labels appear above controls.
-- Native form controls are preferred where they provide robust accessibility.
-- Focus uses accent border/ring treatment.
+- Use HeroUI inputs, selects, and checkboxes for standard forms; keep the native file chooser for dataset imports.
+- HeroUI supplies visible keyboard focus treatment.
 - Validation copy should be close to the related controls when possible.
 - Type-specific values must not be silently accepted when invalid.
 - Hover may strengthen the control border without changing layout.

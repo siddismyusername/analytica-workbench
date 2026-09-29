@@ -1,3 +1,4 @@
+@layer app {
 :root {
   /* Typography */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -9,12 +10,12 @@
   --border-subtle: var(--border);
 
   /* Semantic status roles. */
-  --success-text: #166534;
+  --success-text: color-mix(in oklch, var(--success) 55%, var(--foreground));
   --success-soft: color-mix(in srgb, var(--success) 10%, transparent);
   --success-border: color-mix(in srgb, var(--success) 28%, var(--border));
-  --warning-text: #92400e;
+  --warning-text: color-mix(in oklch, var(--warning) 55%, var(--foreground));
   --warning-border: color-mix(in srgb, var(--warning) 30%, var(--border));
-  --danger-text: var(--danger);
+  --danger-text: color-mix(in oklch, var(--danger) 65%, var(--foreground));
   --danger-border: color-mix(in srgb, var(--danger) 28%, var(--border));
 
   /* Component roles built from the canonical radius scale. */
@@ -24,11 +25,7 @@
   --radius-shell: var(--radius-xl);
   --radius-pill: 999px;
 
-  /* Shared action treatment. */
-  --accent-gradient: linear-gradient(180deg, #3474f3, #1d5dde);
-  --accent-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 5px 14px rgba(37, 99, 235, 0.20);
-
-  /* Spacing scale. */
+    /* Spacing scale. */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -57,55 +54,6 @@ textarea {
   font: inherit;
 }
 
-.nav-item,
-.toolbar button,
-.preview-pagination button,
-.selected-file-row button,
-.error-banner button,
-.primary-action,
-.secondary-action {
-  transition:
-    background-color var(--motion-fast) var(--ease-standard),
-    border-color var(--motion-fast) var(--ease-standard),
-    color var(--motion-fast) var(--ease-standard),
-    box-shadow var(--motion-fast) var(--ease-standard),
-    filter var(--motion-fast) var(--ease-standard),
-    transform var(--motion-fast) var(--ease-standard);
-}
-
-.primary-action {
-  background: var(--accent-gradient) !important;
-  box-shadow: var(--accent-shadow);
-}
-
-.primary-action:hover:not(:disabled) {
-  filter: brightness(1.035);
-}
-
-.primary-action:active:not(:disabled) {
-  transform: translateY(1px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 3px 9px rgba(37, 99, 235, 0.18);
-}
-
-.secondary-action:hover:not(:disabled),
-.toolbar button:hover:not(:disabled),
-.preview-pagination button:hover:not(:disabled),
-.selected-file-row button:hover:not(:disabled),
-.error-banner button:hover:not(:disabled) {
-  border-color: var(--border-strong);
-  background: color-mix(in srgb, var(--accent) 4%, var(--content-subtle));
-  color: var(--text);
-}
-
-.secondary-action:active:not(:disabled),
-.toolbar button:active:not(:disabled),
-.preview-pagination button:active:not(:disabled),
-.selected-file-row button:active:not(:disabled),
-.error-banner button:active:not(:disabled),
-.nav-item:active:not(:disabled) {
-  transform: translateY(1px);
-}
-
 .drop-zone {
   transition:
     border-color var(--motion-fast) var(--ease-standard),
@@ -115,14 +63,6 @@ textarea {
 
 .progress-track span {
   transition: width var(--motion-progress) var(--ease-standard);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --success-text: #86efac;
-    --warning-text: #fcd34d;
-    --danger-text: #fca5a5;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -137,4 +77,6 @@ textarea {
   .progress-track span {
     transition: none;
   }
+}
+
 }

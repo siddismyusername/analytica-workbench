@@ -1,3 +1,4 @@
+@layer app {
 .layout {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr) 280px;
@@ -151,10 +152,8 @@
 }
 
 .applyButton {
-  border-color: transparent !important;
-  background: var(--accent-gradient) !important;
-  color: var(--accent-contrast) !important;
-  box-shadow: var(--accent-shadow);
+  border-color: transparent;
+  color: var(--accent-contrast);
 }
 
 .applyButton:hover:not(:disabled) {
@@ -415,4 +414,6 @@
   .versionButton {
     transition: none;
   }
+}
+
 }

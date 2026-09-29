@@ -1,3 +1,4 @@
+@layer app {
 .layout {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
@@ -454,9 +455,7 @@
   border: 0;
   border-radius: var(--radius-control);
   min-height: 40px;
-  background: var(--accent-gradient);
   color: var(--accent-contrast);
-  box-shadow: var(--accent-shadow);
   font-weight: 650;
   cursor: pointer;
   transition: filter var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
@@ -544,4 +543,6 @@
     animation: none;
     transition: none;
   }
+}
+
 }
