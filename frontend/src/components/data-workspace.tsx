@@ -440,15 +440,20 @@ export function DataWorkspace() {
   }
 
   async function commitOperation() {
-    if (!profile || !previewedOperation) return;
+    if (!profile) return;
     setPrepareBusy(true);
     setPrepareError(null);
     try {
-      const submitted = await applyTransform(profile.version_id, previewedOperation);
+      const operation = previewedOperation ?? buildOperation();
+      if (!previewedOperation) {
+        const result = await previewTransform(profile.version_id, operation, 50);
+        setPreviewedOperation(operation);
+        setTransformPreviewState(result);
+      }
+      const submitted = await applyTransform(profile.version_id, operation);
       const completed = await waitForTransform(submitted);
       if (!completed.version_id) throw new Error("Transformation completed without a dataset version.");
       await refreshVersion(completed.version_id);
-      setTransformPreviewState(null);
       setPreviewedOperation(null);
       setRawValue("");
       setNewName("");
@@ -538,7 +543,7 @@ export function DataWorkspace() {
             {tool === "rename_column" ? <label className={styles.field}><span>New name</span><input value={newName} maxLength={255} onChange={(event) => { setNewName(event.target.value); invalidateTransformPreview(); }} /></label> : null}
             {tool === "deduplicate" ? <p className="dataset-meta">All columns are considered. One copy of each identical row will remain.</p> : null}
             {tool === "drop_columns" ? <p className="dataset-meta">The column is removed only from the next version. Earlier versions remain intact.</p> : null}
-            <div className={styles.actions}><button type="button" onClick={previewOperation} disabled={prepareBusy}>Preview</button><button className={styles.applyButton} type="button" onClick={commitOperation} disabled={prepareBusy || !previewedOperation}>Apply</button></div>
+            <div className={styles.actions}><button type="button" onClick={previewOperation} disabled={prepareBusy}>Preview</button><button className={styles.applyButton} type="button" onClick={commitOperation} disabled={prepareBusy}>Apply</button></div>
             {prepareBusy ? <span className={styles.busy}>Working</span> : null}
           </div>
         </aside>

@@ -3,6 +3,7 @@
   grid-template-columns: 320px minmax(0, 1fr);
   gap: 18px;
   align-items: start;
+  margin-top: 16px;
 }
 
 .config,
@@ -51,6 +52,7 @@
   font-weight: 700;
   cursor: pointer;
 }
+.submit:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
 .submit:disabled { opacity: .5; cursor: not-allowed; }
 .header { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
 .version { border-radius: 999px; padding: 7px 10px; background: var(--surface-muted); color: var(--text-muted); font-size: 12px; }
@@ -58,6 +60,8 @@
 .runButton,
 .runActive { display: grid; gap: 4px; text-align: left; border: 1px solid var(--border-subtle); border-radius: 12px; padding: 10px 12px; background: var(--surface-muted); color: inherit; font: inherit; cursor: pointer; }
 .runActive { border-color: #315fe7; background: color-mix(in srgb, #315fe7 10%, var(--surface-strong)); }
+.runButton:hover:not(:disabled),
+.runActive:hover:not(:disabled) { border-color: color-mix(in srgb, #315fe7 48%, var(--border-subtle)); transform: translateY(-1px); }
 .runButton span,
 .runActive span { font-size: 11px; color: var(--text-muted); }
 .empty,

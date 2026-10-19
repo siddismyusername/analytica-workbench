@@ -11,6 +11,7 @@
   border: 1px solid var(--border);
   background: var(--content);
   border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
 }
 
 .panel {
@@ -62,7 +63,7 @@
 
 .toolButton:hover,
 .toolButtonActive {
-  background: var(--subtle-surface, rgba(127,127,127,.08));
+  background: var(--surface-muted);
   border-color: var(--border);
 }
 
@@ -118,10 +119,21 @@
   cursor: not-allowed;
 }
 
+.actions button:not(:disabled):hover,
+.historyButton:not(:disabled):hover,
+.versionButton:not(:disabled):hover {
+  border-color: var(--border-strong);
+  background: var(--surface-muted);
+}
+
 .applyButton {
   border-color: transparent !important;
   background: var(--accent) !important;
   color: var(--accent-contrast) !important;
+}
+
+.applyButton:hover:not(:disabled) {
+  filter: brightness(1.06);
 }
 
 .canvasHeader {
@@ -226,6 +238,10 @@
   z-index: 1;
   background: var(--content);
   font-weight: 620;
+}
+
+.previewTable tbody tr:hover {
+  background: var(--accent-soft);
 }
 
 .null {

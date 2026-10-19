@@ -3,6 +3,7 @@
   grid-template-columns: 280px minmax(0, 1fr);
   gap: 18px;
   min-height: calc(100vh - 118px);
+  margin-top: 16px;
 }
 
 .guide,
