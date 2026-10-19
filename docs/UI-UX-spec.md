@@ -4,7 +4,7 @@
 **Scope:** Browser application in `frontend/`  
 **Status:** Living source-of-truth  
 **Baseline:** Current Data, Prepare, Explore, Analyze, supervised Model, and Results implementation
-**Last reviewed:** 2026-09-28
+**Last reviewed:** 2026-09-29
 
 ---
 
@@ -122,97 +122,15 @@ Analytical content surfaces should be solid or near-solid.
 
 ---
 
-# 4. Current visual tokens
+# 4. HeroUI design system
 
-The current token source is `frontend/src/app/globals.css`.
+HeroUI v3 is the source of theme colors, component variants, interaction states, and form and table styling. The frontend imports `@heroui/styles/css` and uses `@heroui/react` components for buttons, inputs, selects, checkboxes, cards, and analytical tables. Tailwind CSS v4 builds the library styles. `next-themes` applies HeroUI's light or dark theme according to the operating system.
 
-## 4.1 Light palette
+The app's CSS defines the workspace layout and specialist analytical presentation. It is placed in the `app` cascade layer, after HeroUI's base styles and before HeroUI component styles, so the library retains ownership of control appearance. `globals.css` bridges older workspace variables such as `--text`, `--content`, and `--content-subtle` to HeroUI's `--foreground`, `--surface`, and `--surface-secondary`. Workspace modules should use these semantic colors and avoid fixed light or dark values.
 
-| Token | Current value | Intended use |
-| --- | --- | --- |
-| `--background` | `#f2f4f7` | app canvas |
-| `--background-deep` | `#e8ecf2` | canvas gradient depth |
-| `--surface` | `rgba(255,255,255,.78)` | glass chrome |
-| `--surface-strong` | `rgba(255,255,255,.94)` | elevated near-solid surface |
-| `--content` | `#ffffff` | analytical cards/tables |
-| `--content-subtle` | `#f8f9fb` | secondary analytical surface |
-| `--text` | `#15171a` | primary text |
-| `--muted` | `#6b717b` | secondary labels |
-| `--muted-strong` | `#4d535d` | secondary readable copy |
-| `--border` | `rgba(15,23,42,.09)` | subtle separators |
-| `--border-strong` | `rgba(15,23,42,.15)` | controls/emphasis |
-| `--glass-border` | `rgba(255,255,255,.68)` | glass edge |
-| `--accent` | `#2563eb` | primary action/focus |
-| `--accent-soft` | `rgba(37,99,235,.10)` | selected/info tint |
-| `--warning` | `#c66a08` | warnings |
-| `--success` | `#15803d` | healthy/success |
-| `--danger` | `#b42318` | error/destructive status |
+HeroUI `primary` marks the main commit or advance action in each decision area. Supporting actions use `tertiary`; navigation uses `ghost`. The library supplies disabled, hover, focus, and pressed states. Custom CSS should add layout only where necessary. Data grids with viewport virtualization remain specialist views and use HeroUI theme tokens; bounded analytical tables use HeroUI Table.
 
-## 4.2 Dark palette
-
-The application follows `prefers-color-scheme: dark`. Current principal values are:
-
-- app canvas: `#0c0e12` → `#11141a`;
-- content: `#15181d`;
-- subtle content: `#1b1f25`;
-- primary text: `#f2f4f7`;
-- muted text: `#9299a4`;
-- strong muted text: `#b8bec8`;
-- borders: low-opacity white;
-- glass surfaces: dark translucent grays;
-- accent remains blue with adjusted soft-alpha treatment.
-
-No screen may assume a light background when defining chart labels, borders or status text.
-
-## 4.3 Radius scale
-
-| Token | Value |
-| --- | ---: |
-| `--radius-sm` | `10px` |
-| `--radius-md` | `16px` |
-| `--radius-lg` | `24px` |
-| `--radius-xl` | `30px` |
-
-Use small radii for controls, medium for cards, large/x-large for primary workspace surfaces.
-
-## 4.4 Shadows
-
-Two principal elevation levels exist:
-
-- `--shadow-card` — restrained card separation;
-- `--shadow-float` — stronger elevation for glass navigation/control chrome.
-
-Dense analytical cards should not all use strong floating shadows. Borders and surface contrast should carry most hierarchy.
-
-## 4.5 Typography
-
-The CSS font stack is currently:
-
-`Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`
-
-No Inter font asset is currently loaded by `layout.tsx`; therefore clients without Inter installed will use the system fallback. Until a bundled/web-loaded font is intentionally introduced, designs must be validated against the system fallback metrics as well.
-
-Current type character:
-
-- compact UI labels: `9–12px`;
-- navigation/body controls: `11–13px`;
-- toolbar title: `15px`;
-- card/workspace headings: approximately `18–23px`;
-- dataset heading: responsive `26–42px`;
-- import hero: responsive `38–70px` with tight leading and negative tracking.
-
-Tabular numbers should use tabular numerals where repeated values must align.
-
-## 4.6 Eyebrow label
-
-The `.eyebrow` pattern is a small uppercase contextual label:
-
-- roughly `10px`;
-- increased tracking;
-- muted color;
-- semibold weight.
-
-Use it for context such as `Data workspace`, `Preview`, `Reproducibility`, `Result`, or `Immutable version 3`. It must not replace the main heading.
+Typography keeps the app's Inter font binding. The workspace spacing and panel radius aliases remain in `design-system.css`. Shadows separate surfaces gently, while dense tables and charts stay solid and legible.
 
 ---
 
@@ -540,7 +458,10 @@ Charts should:
 - avoid unnecessary 3D/decorative effects;
 - keep chart chrome subordinate to the data;
 - use bounded data payloads for performance;
-- remain interpretable in both light and dark color schemes.
+- remain interpretable in both light and dark color schemes;
+- derive font, text, muted, border, surface and accent colors from the live design-system tokens;
+- set animation duration to zero when `prefers-reduced-motion: reduce` is active;
+- update their rendered theme if the OS color-scheme preference changes while the chart is mounted.
 
 ---
 
@@ -703,7 +624,9 @@ Use three conceptual levels:
 - **Secondary:** valid supporting action (`Choose file`, `Preview`, pagination).
 - **Tertiary/ghost:** navigation, contextual actions, small utilities.
 
-Primary buttons currently use a blue vertical gradient and white text. Avoid multiple visually primary actions within one decision area.
+Use the HeroUI `primary` button variant for commit and advance actions. Avoid multiple visually primary actions within one decision area.
+
+Every enabled interactive button style shall define a meaningful hover response, preserve the global keyboard focus indicator, and avoid motion larger than the small press/selection translations already used by the system.
 
 ## 13.2 Disabled controls
 
@@ -712,10 +635,11 @@ Disabled controls use reduced opacity and non-interactive cursor behavior. They 
 ## 13.3 Form fields
 
 - Labels appear above controls.
-- Native form controls are preferred where they provide robust accessibility.
-- Focus uses accent border/ring treatment.
+- Use HeroUI inputs, selects, and checkboxes for standard forms; keep the native file chooser for dataset imports.
+- HeroUI supplies visible keyboard focus treatment.
 - Validation copy should be close to the related controls when possible.
 - Type-specific values must not be silently accepted when invalid.
+- Hover may strengthen the control border without changing layout.
 
 ## 13.4 Badges/chips
 
@@ -751,15 +675,18 @@ Motion must be functional and restrained.
 
 Current behavior includes:
 
-- approximately `140–160ms` hover/selection transitions;
-- upload/progress width transitions;
+- `140ms` fast hover/control transitions;
+- `160ms` selection transitions;
+- `220ms` progress-width transitions;
 - small busy/pulse indicators;
+- ECharts animation around `260ms` when reduced motion is not requested;
 - no page-scale decorative animation requirement.
 
 When `prefers-reduced-motion: reduce` is active:
 
-- transitions and animations are effectively disabled;
-- spinner animation should stop or reduce to a static busy treatment;
+- global transitions and animations are effectively disabled;
+- workspace spinner/pulse animations stop;
+- chart animation duration becomes zero;
 - no information may depend on animation.
 
 ---
@@ -815,7 +742,7 @@ Current global focus treatment:
 - `2px` accent outline;
 - `3px` outline offset.
 
-No component may remove visible focus without supplying an equivalent or stronger replacement.
+No component may remove visible focus without supplying an equivalent or stronger replacement. Form controls that use an internal accent ring on `:focus` must still preserve a visible keyboard indication through the global `:focus-visible` treatment.
 
 ## 16.3 Semantics
 
@@ -833,7 +760,7 @@ Long-running progress and errors should be announced through appropriate live-re
 
 ## 16.5 Color/contrast
 
-Status colors must be accompanied by textual meaning. Before production release, both themes require a WCAG 2.2 AA contrast audit, including charts and disabled controls.
+Status colors must be accompanied by textual meaning. Status text shall use the dedicated semantic text roles rather than decorative status colors where normal-size copy is rendered. Both themes require WCAG 2.2 AA contrast for normal text, controls and chart labels.
 
 ## 16.6 Charts
 
@@ -890,8 +817,8 @@ The UI may use technical terminology when the terminology is the object the user
 | Explore query | local progress state | 422/404/network error | revise variables/retry |
 | Analyze recommendation | calculation state | validation error | revise roles/retry |
 | Analyze run | calculation state | invalid test/limit/error | revise config or move to future deferred path |
-| Model — planned | durable job progress | training failure | inspect config/retry |
-| Export — planned | generation progress | export failure | retry without losing source result |
+| Model | durable training-job progress | training failure | inspect config/retry |
+| Export | generation progress | export failure | retry without losing source result |
 
 ---
 
@@ -907,6 +834,8 @@ The UI may use technical terminology when the terminology is the object the user
 8. Do not add large permanent toolbars of rarely used controls; use contextual disclosure.
 9. Do not force desktop-density tables into tiny responsive cards that destroy row/column relationships.
 10. Keep visual emphasis proportional to analytical importance.
+11. Do not introduce undeclared CSS custom properties for theme, status, surface, typography, radius or motion roles.
+12. Do not hardcode alternate brand blues for primary actions; use the shared accent/action tokens.
 
 ---
 
@@ -914,12 +843,15 @@ The UI may use technical terminology when the terminology is the object the user
 
 | UI area | Primary source files |
 | --- | --- |
-| Global shell/tokens/Data | `src/app/globals.css`, `src/components/data-workspace.tsx` |
+| Global shell/base tokens/Data | `src/app/globals.css`, `src/components/data-workspace.tsx` |
+| Semantic design-system roles/font binding | `src/app/design-system.css`, `src/app/layout.tsx` |
 | Prepare | `src/components/data-workspace.tsx`, `src/components/prepare-workspace.module.css` |
 | Explore | `src/components/explore-workspace.tsx`, `src/components/explore-workspace.module.css` |
 | Charts | `src/components/explore-chart.tsx` |
 | Analyze | `src/components/analyze-workspace.tsx`, `src/components/analyze-workspace.module.css` |
-| Typed API clients | `src/lib/dataset-upload.ts`, `src/lib/prepare-api.ts`, `src/lib/explore-api.ts`, `src/lib/analyze-api.ts` |
+| Model | `src/components/model-workspace.tsx`, `src/components/model-workspace.module.css` |
+| Results | `src/components/results-workspace.tsx`, `src/components/results-workspace.module.css` |
+| Typed API clients | `src/lib/dataset-upload.ts`, `src/lib/prepare-api.ts`, `src/lib/explore-api.ts`, `src/lib/analyze-api.ts`, `src/lib/model-api.ts`, `src/lib/results-api.ts` |
 
 ---
 

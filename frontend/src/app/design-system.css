@@ -1,0 +1,82 @@
+@layer app {
+:root {
+  /* Typography */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Canonical semantic aliases used by workspace modules. */
+  --text-primary: var(--text);
+  --text-muted: var(--muted);
+  --surface-muted: var(--content-subtle);
+  --border-subtle: var(--border);
+
+  /* Semantic status roles. */
+  --success-text: color-mix(in oklch, var(--success) 55%, var(--foreground));
+  --success-soft: color-mix(in srgb, var(--success) 10%, transparent);
+  --success-border: color-mix(in srgb, var(--success) 28%, var(--border));
+  --warning-text: color-mix(in oklch, var(--warning) 55%, var(--foreground));
+  --warning-border: color-mix(in srgb, var(--warning) 30%, var(--border));
+  --danger-text: color-mix(in oklch, var(--danger) 65%, var(--foreground));
+  --danger-border: color-mix(in srgb, var(--danger) 28%, var(--border));
+
+  /* Component roles built from the canonical radius scale. */
+  --radius-control: var(--radius-sm);
+  --radius-card: var(--radius-md);
+  --radius-panel: var(--radius-lg);
+  --radius-shell: var(--radius-xl);
+  --radius-pill: 999px;
+
+    /* Spacing scale. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Motion. */
+  --motion-fast: 140ms;
+  --motion-standard: 160ms;
+  --motion-progress: 220ms;
+  --ease-standard: ease;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.drop-zone {
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.progress-track span {
+  transition: width var(--motion-progress) var(--ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-item,
+  .toolbar button,
+  .preview-pagination button,
+  .selected-file-row button,
+  .error-banner button,
+  .primary-action,
+  .secondary-action,
+  .drop-zone,
+  .progress-track span {
+    transition: none;
+  }
+}
+
+}

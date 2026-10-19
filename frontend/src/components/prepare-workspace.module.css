@@ -1,3 +1,4 @@
+@layer app {
 .layout {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr) 280px;
@@ -35,7 +36,7 @@
 
 .heading h2 {
   font-size: 20px;
-  letter-spacing: -.02em;
+  letter-spacing: -0.02em;
 }
 
 .toolList {
@@ -49,11 +50,12 @@
   width: 100%;
   padding: 11px 12px;
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--text);
   text-align: left;
   cursor: pointer;
+  transition: background-color var(--motion-standard) var(--ease-standard), border-color var(--motion-standard) var(--ease-standard), transform var(--motion-standard) var(--ease-standard);
 }
 
 .toolButton span {
@@ -65,6 +67,10 @@
 .toolButtonActive {
   background: var(--surface-muted);
   border-color: var(--border);
+}
+
+.toolButton:active {
+  transform: translateY(1px);
 }
 
 .config {
@@ -88,10 +94,23 @@
   min-height: 38px;
   padding: 8px 10px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   background: var(--content);
   color: var(--text);
   font: inherit;
+  transition: border-color var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard), background-color var(--motion-fast) var(--ease-standard);
+}
+
+.field select:hover,
+.field input:hover {
+  border-color: var(--border-strong);
+}
+
+.field select:focus,
+.field input:focus {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border-strong));
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  outline: none;
 }
 
 .actions {
@@ -106,16 +125,30 @@
 .versionButton {
   min-height: 38px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--text);
   cursor: pointer;
+  transition: border-color var(--motion-fast) var(--ease-standard), background-color var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard), filter var(--motion-fast) var(--ease-standard);
+}
+
+.actions button:hover:not(:disabled),
+.historyButton:hover:not(:disabled),
+.versionButton:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--content-subtle);
+}
+
+.actions button:active:not(:disabled),
+.historyButton:active:not(:disabled),
+.versionButton:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .actions button:disabled,
 .historyButton:disabled,
 .versionButton:disabled {
-  opacity: .45;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
@@ -127,9 +160,12 @@
 }
 
 .applyButton {
-  border-color: transparent !important;
-  background: var(--accent) !important;
-  color: var(--accent-contrast) !important;
+  border-color: transparent;
+  color: var(--accent-contrast);
+}
+
+.applyButton:hover:not(:disabled) {
+  filter: brightness(1.035);
 }
 
 .applyButton:hover:not(:disabled) {
@@ -160,7 +196,7 @@
   flex: 0 0 auto;
   padding: 7px 10px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--muted);
   font-size: 12px;
 }
@@ -183,13 +219,14 @@
   color: var(--muted);
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
 }
 
 .impact strong {
   display: block;
   margin-top: 4px;
   font-size: 18px;
+  font-variant-numeric: tabular-nums;
 }
 
 .previewHeading {
@@ -267,10 +304,10 @@
 .error {
   margin: 14px 18px;
   padding: 12px;
-  border: 1px solid color-mix(in srgb, #c2410c 35%, var(--border));
-  border-radius: 10px;
-  background: color-mix(in srgb, #c2410c 7%, var(--content));
-  color: var(--text);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-control);
+  background: var(--danger-soft);
+  color: var(--danger-text);
   font-size: 12px;
 }
 
@@ -284,7 +321,7 @@
 .historyItem {
   padding: 11px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   background: var(--content);
 }
 
@@ -325,8 +362,9 @@
   gap: 8px;
   margin-bottom: 10px;
   padding: 10px;
-  border-radius: 12px;
-  background: var(--subtle-surface, rgba(127,127,127,.08));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--content-subtle);
 }
 
 .originalVersion span {
@@ -349,7 +387,7 @@
   border: 2px solid currentColor;
   border-right-color: transparent;
   border-radius: 999px;
-  animation: prepare-spin .8s linear infinite;
+  animation: prepare-spin 0.8s linear infinite;
 }
 
 @keyframes prepare-spin {
@@ -360,9 +398,11 @@
   .layout {
     grid-template-columns: 210px minmax(0, 1fr);
   }
+
   .historyPanel {
     grid-column: 1 / -1;
   }
+
   .historyList {
     max-height: 280px;
   }
@@ -372,14 +412,24 @@
   .layout {
     grid-template-columns: 1fr;
   }
-  .impact {
-    grid-template-columns: 1fr;
-  }
+
+  .impact,
   .actions {
     grid-template-columns: 1fr;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .busy::before { animation: none; }
+  .busy::before {
+    animation: none;
+  }
+
+  .toolButton,
+  .actions button,
+  .historyButton,
+  .versionButton {
+    transition: none;
+  }
+}
+
 }

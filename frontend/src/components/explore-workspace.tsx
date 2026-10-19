@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { ExploreChart } from "@/components/explore-chart";
+import { Button, Select } from "./ui-controls";
+
+import { DataTable } from "./data-table";
+
 import styles from "./explore-workspace.module.css";
 import type { DatasetColumnProfile, DatasetProfile } from "@/lib/dataset-upload";
 import {
@@ -232,7 +236,7 @@ export function ExploreWorkspace({ profile }: { profile: DatasetProfile }) {
         </div>
         <div className={styles.columnList}>
           {profile.columns.map((column) => (
-            <button
+            <Button
               type="button"
               className={`${styles.columnButton} ${
                 selectedColumn.column_id === column.column_id ? styles.columnButtonActive : ""
@@ -248,7 +252,7 @@ export function ExploreWorkspace({ profile }: { profile: DatasetProfile }) {
                 {column.distinct_count.toLocaleString()} distinct ·{" "}
                 {column.null_percentage.toFixed(1)}% missing
               </small>
-            </button>
+            </Button>
           ))}
         </div>
       </aside>
@@ -261,36 +265,36 @@ export function ExploreWorkspace({ profile }: { profile: DatasetProfile }) {
             <p>Explore distributions and relationships without changing the dataset.</p>
           </div>
           <div className={styles.modeTabs} role="tablist" aria-label="Explore views">
-            <button
+            <Button
               className={panel === "column" ? styles.modeActive : ""}
               type="button"
               onClick={() => setPanel("column")}
             >
               Summary
-            </button>
-            <button
+            </Button>
+            <Button
               className={panel === "correlation" ? styles.modeActive : ""}
               type="button"
               disabled={numericColumns.length < 2}
               onClick={loadCorrelations}
             >
               Correlation
-            </button>
-            <button
+            </Button>
+            <Button
               className={panel === "crosstab" ? styles.modeActive : ""}
               type="button"
               disabled={categoricalColumns.length < 2}
               onClick={loadCrosstab}
             >
               Crosstab
-            </button>
-            <button
+            </Button>
+            <Button
               className={panel === "visualize" ? styles.modeActive : ""}
               type="button"
               onClick={() => buildVisualization()}
             >
               Visualize
-            </button>
+            </Button>
           </div>
         </header>
 
@@ -345,12 +349,12 @@ export function ExploreWorkspace({ profile }: { profile: DatasetProfile }) {
                 <div className={styles.contextActions}>
                   {NUMERIC_TYPES.has(selectedColumn.data_type) ? (
                     <>
-                      <button type="button" onClick={() => buildVisualization("histogram")}>Histogram</button>
-                      <button type="button" onClick={() => buildVisualization("box")}>Box plot</button>
-                      <button type="button" onClick={() => buildVisualization("qq")}>Q-Q plot</button>
+                      <Button type="button" onClick={() => buildVisualization("histogram")}>Histogram</Button>
+                      <Button type="button" onClick={() => buildVisualization("box")}>Box plot</Button>
+                      <Button type="button" onClick={() => buildVisualization("qq")}>Q-Q plot</Button>
                     </>
                   ) : (
-                    <button type="button" onClick={() => buildVisualization("bar")}>Frequency bar chart</button>
+                    <Button type="button" onClick={() => buildVisualization("bar")}>Frequency bar chart</Button>
                   )}
                 </div>
               </section>
@@ -383,7 +387,7 @@ export function ExploreWorkspace({ profile }: { profile: DatasetProfile }) {
             </div>
             {correlations ? (
               <div className={styles.matrixWrap}>
-                <table className={styles.matrix}>
+                <DataTable aria-label="Pearson correlation matrix" className={styles.matrix}>
                   <thead><tr><th />{correlations.columns.map((column) => <th key={column.column_id}>{column.name}</th>)}</tr></thead>
                   <tbody>
                     {correlations.columns.map((rowColumn, rowIndex) => (
@@ -408,11 +412,11 @@ export function ExploreWorkspace({ profile }: { profile: DatasetProfile }) {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </DataTable>
               </div>
             ) : null}
             <div className={styles.contextActions}>
-              <button type="button" onClick={() => buildVisualization("heatmap")}>Open heatmap</button>
+              <Button type="button" onClick={() => buildVisualization("heatmap")}>Open heatmap</Button>
             </div>
           </section>
         ) : null}
@@ -421,25 +425,25 @@ export function ExploreWorkspace({ profile }: { profile: DatasetProfile }) {
           <section className={styles.card}>
             <div className={styles.cardHeader}>
               <div><p className="eyebrow">Crosstab</p><h3>Category intersection</h3></div>
-              <button type="button" onClick={loadCrosstab}>Recalculate</button>
+              <Button type="button" onClick={loadCrosstab}>Recalculate</Button>
             </div>
             <div className={styles.selectorRow}>
               <label>
                 <span>Rows</span>
-                <select value={crosstabRowId} onChange={(event) => { setCrosstabRowId(event.target.value); setCrosstab(null); }}>
+                <Select aria-label="Crosstab rows" value={crosstabRowId} onChange={(event) => { setCrosstabRowId(event.target.value); setCrosstab(null); }}>
                   {categoricalColumns.map((column) => <option value={column.column_id} key={column.column_id}>{column.display_name}</option>)}
-                </select>
+                </Select>
               </label>
               <label>
                 <span>Columns</span>
-                <select value={crosstabColumnId} onChange={(event) => { setCrosstabColumnId(event.target.value); setCrosstab(null); }}>
+                <Select aria-label="Crosstab columns" value={crosstabColumnId} onChange={(event) => { setCrosstabColumnId(event.target.value); setCrosstab(null); }}>
                   {categoricalColumns.map((column) => <option value={column.column_id} key={column.column_id}>{column.display_name}</option>)}
-                </select>
+                </Select>
               </label>
             </div>
             {crosstab ? (
               <div className={styles.matrixWrap}>
-                <table className={styles.crosstab}>
+                <DataTable aria-label="Category intersection" className={styles.crosstab}>
                   <thead>
                     <tr><th>{crosstab.row_column.name}</th>{crosstab.column_values.map((value, index) => <th key={index}>{displayValue(value)}</th>)}<th>Total</th></tr>
                   </thead>
@@ -457,7 +461,7 @@ export function ExploreWorkspace({ profile }: { profile: DatasetProfile }) {
                       <td><strong>{crosstab.total.toLocaleString()}</strong></td>
                     </tr>
                   </tbody>
-                </table>
+                </DataTable>
                 <p className="dataset-meta">
                   {crosstab.row_truncated || crosstab.column_truncated
                     ? "Showing the most frequent categories. Totals cover only the displayed intersections and exclude missing values."
@@ -474,7 +478,7 @@ export function ExploreWorkspace({ profile }: { profile: DatasetProfile }) {
               <div><p className="eyebrow">Chart builder</p><h3>Visualization</h3></div>
               <div className={styles.chartTypeGrid}>
                 {CHARTS.map((chart) => (
-                  <button
+                  <Button
                     type="button"
                     disabled={!chartSupported(chart.type, selectedColumn, secondaryColumn)}
                     className={chartType === chart.type ? styles.chartTypeActive : ""}
@@ -483,12 +487,13 @@ export function ExploreWorkspace({ profile }: { profile: DatasetProfile }) {
                   >
                     <strong>{chart.label}</strong>
                     <span>{chart.description}</span>
-                  </button>
+                  </Button>
                 ))}
               </div>
               <label>
                 <span>X / primary variable</span>
-                <select
+                <Select
+                  aria-label="Chart primary variable"
                   value={selectedColumn.column_id}
                   onChange={(event) => {
                     setSelectedColumnId(event.target.value);
@@ -498,12 +503,13 @@ export function ExploreWorkspace({ profile }: { profile: DatasetProfile }) {
                   {profile.columns.map((column) => (
                     <option value={column.column_id} key={column.column_id}>{column.display_name} · {column.data_type}</option>
                   ))}
-                </select>
+                </Select>
               </label>
               {chartType === "line" || chartType === "scatter" || chartType === "box" ? (
                 <label>
                   <span>{chartType === "box" ? "Optional grouping variable" : "Y variable"}</span>
-                  <select
+                  <Select
+                    aria-label="Chart secondary variable"
                     value={secondaryColumn?.column_id ?? ""}
                     onChange={(event) => {
                       setSecondaryColumnId(event.target.value);
@@ -513,17 +519,17 @@ export function ExploreWorkspace({ profile }: { profile: DatasetProfile }) {
                     {profile.columns.map((column) => (
                       <option value={column.column_id} key={column.column_id}>{column.display_name} · {column.data_type}</option>
                     ))}
-                  </select>
+                  </Select>
                 </label>
               ) : null}
-              <button
+              <Button
                 className={styles.runButton}
                 type="button"
                 disabled={busy || !chartSupported(chartType, selectedColumn, secondaryColumn)}
                 onClick={() => buildVisualization()}
               >
                 Run visualization
-              </button>
+              </Button>
             </aside>
             <div className={styles.chartCanvas}>
               {visualization ? (
