@@ -4,7 +4,6 @@
   grid-template-columns: 260px minmax(0, 1fr);
   gap: 18px;
   min-height: calc(100vh - 118px);
-  margin-top: 16px;
 }
 
 .columnRail,
@@ -74,10 +73,6 @@
 
 .columnButton:active {
   transform: translateY(1px);
-}
-
-.columnButton:active {
-  transform: scale(0.99);
 }
 
 .columnButton > div {
@@ -255,12 +250,6 @@
 .cardHeader button:active,
 .contextActions button:active {
   transform: translateY(1px);
-}
-
-.cardHeader button:hover,
-.contextActions button:hover,
-.chartTypeGrid button:hover {
-  border-color: color-mix(in srgb, var(--accent) 38%, var(--border-subtle));
 }
 
 .statList {
@@ -478,11 +467,6 @@
 
 .runButton:active:not(:disabled) {
   transform: translateY(1px);
-}
-
-.runButton:hover:not(:disabled) {
-  filter: brightness(1.06);
-  transform: translateY(-1px);
 }
 
 .runButton:disabled {
