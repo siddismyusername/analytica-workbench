@@ -4,7 +4,6 @@
   grid-template-columns: 320px minmax(0, 1fr);
   gap: 18px;
   align-items: start;
-  margin-top: 16px;
 }
 
 .config,
@@ -187,6 +186,7 @@
 .runActive:active {
   transform: translateY(1px);
 }
+
 .runButton span,
 .runActive span {
   font-size: 11px;
