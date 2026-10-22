@@ -9,6 +9,22 @@ permissions:
   contents: read
 
 jobs:
+  hygiene:
+    name: Repository hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject committed local runtime/generated state
+        shell: bash
+        run: |
+          set -euo pipefail
+          forbidden="$(git ls-files             'backend/.analytica/**'             'backend/analytica.db*'             'backend/package-lock.json'             'package-lock.json'             '*.tsbuildinfo')"
+          if [[ -n "$forbidden" ]]; then
+            echo "Forbidden generated/runtime files are tracked:"
+            echo "$forbidden"
+            exit 1
+          fi
+
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
@@ -20,7 +36,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: npm install
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
