@@ -4,7 +4,6 @@
   grid-template-columns: minmax(0, 1fr) 330px;
   gap: 18px;
   align-items: start;
-  margin-top: 16px;
 }
 
 .main,
