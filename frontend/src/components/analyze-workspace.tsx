@@ -360,7 +360,7 @@ function AnalysisResultView({ profile, result }: { profile: DatasetProfile; resu
 
       <section className={styles.detailCard}>
         <div className={styles.sectionHeading}><div><p className="eyebrow">Assumptions & diagnostics</p><h3>Diagnostic evidence</h3></div></div>
-        <div className={styles.diagnosticGrid}>{result.diagnostics.map((item, index) => <article className={styles.diagnostic} data-status={item.status} key={`${item.name}-${item.status}-${index}`}><div><strong>{item.name}</strong><span>{item.status}</span></div><p>{item.message}</p>{item.p_value !== null || item.statistic !== null ? <small>{item.statistic !== null ? `Statistic ${formatNumber(item.statistic)}` : ""}{item.p_value !== null ? ` · p ${formatP(item.p_value)}` : ""}</small> : null}</article>)}</div>
+        <div className={styles.diagnosticGrid}>{result.diagnostics.map((item) => <article className={styles.diagnostic} data-status={item.status} key={item.name}><div><strong>{item.name}</strong><span>{item.status}</span></div><p>{item.message}</p>{item.p_value !== null || item.statistic !== null ? <small>{item.statistic !== null ? `Statistic ${formatNumber(item.statistic)}` : ""}{item.p_value !== null ? ` · p ${formatP(item.p_value)}` : ""}</small> : null}</article>)}</div>
       </section>
 
       {result.warnings.length ? <div className={styles.warningList}>{result.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div> : null}
